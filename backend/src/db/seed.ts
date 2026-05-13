@@ -1,4 +1,7 @@
+import mongoose from 'mongoose';
 import { Achievement } from '../models/Achievement';
+import { connectDB } from './connection';
+import { env } from '../config/env';
 
 const ACHIEVEMENTS = [
   {
@@ -61,4 +64,25 @@ export async function seedAchievements(): Promise<void> {
   }));
 
   await Achievement.bulkWrite(ops);
+}
+
+async function main(): Promise<void> {
+  console.log('Seed: connecting to MongoDB...');
+  await connectDB(env.MONGODB_URI);
+  console.log(`Seed: connected. Upserting ${ACHIEVEMENTS.length} achievements...`);
+
+  await seedAchievements();
+
+  const count = await Achievement.countDocuments();
+  console.log(`Seed: complete. Total achievements in DB: ${count}`);
+
+  await mongoose.disconnect();
+  console.log('Seed: done. Exiting.');
+}
+
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('Seed failed:', err);
+    process.exit(1);
+  });
 }
