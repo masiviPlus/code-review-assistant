@@ -1,0 +1,5 @@
+[
+  { "severity": "error", "category": "logic", "lineRange": [2, 5], "description": "Splicing array while iterating forward skips elements — use filter() or iterate backwards" },
+  { "severity": "error", "category": "logic", "lineRange": [11, 16], "description": "Splicing inner array during nested loop — indices shift causing missed comparisons" },
+  { "severity": "warning", "category": "best_practice", "lineRange": [23, 27], "description": "Mutating the source array inside forEach — use map/filter for immutable approach" }
+]

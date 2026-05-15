@@ -1,0 +1,4 @@
+[
+  { "severity": "error", "category": "readability", "lineRange": [3, 29], "description": "Deeply nested callbacks (4 levels) — refactor to async/await or promises" },
+  { "severity": "warning", "category": "best_practice", "lineRange": [6, 6], "description": "Error handling just logs and continues — should propagate or handle properly" }
+]

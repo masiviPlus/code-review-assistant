@@ -1,0 +1,4 @@
+[
+  { "severity": "error", "category": "readability", "lineRange": [1, 31], "description": "Deeply nested conditionals (7 levels) — use early returns / guard clauses to flatten" },
+  { "severity": "info", "category": "best_practice", "lineRange": [5, 6], "description": "Email validation with just includes('@') is too naive — use a proper check" }
+]

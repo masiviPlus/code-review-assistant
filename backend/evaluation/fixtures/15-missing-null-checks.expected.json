@@ -1,0 +1,6 @@
+[
+  { "severity": "error", "category": "logic", "lineRange": [2, 2], "description": "Deep property access without null checks — will throw TypeError if any level is null/undefined" },
+  { "severity": "error", "category": "logic", "lineRange": [6, 6], "description": "Accessing list[0] without checking if list is empty — will throw on empty array" },
+  { "severity": "error", "category": "logic", "lineRange": [10, 11], "description": "Deep property chain without null checks — any missing level causes TypeError" },
+  { "severity": "warning", "category": "logic", "lineRange": [16, 18], "description": "Accessing user.address properties without checking if address exists" }
+]

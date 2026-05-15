@@ -1,0 +1,6 @@
+[
+  { "severity": "warning", "category": "logic", "lineRange": [5, 5], "description": "Loose equality == 0 can match empty string and false — use ===" },
+  { "severity": "warning", "category": "logic", "lineRange": [8, 8], "description": "Loose equality == '' can match 0 and false — use ===" },
+  { "severity": "warning", "category": "logic", "lineRange": [11, 11], "description": "Loose equality == true has unexpected coercion — use ===" },
+  { "severity": "warning", "category": "logic", "lineRange": [18, 18], "description": "Use === for string comparison" }
+]

@@ -1,0 +1,5 @@
+[
+  { "severity": "error", "category": "logic", "lineRange": [4, 5], "description": "No try-catch around readFileSync/JSON.parse — will crash on missing file or invalid JSON" },
+  { "severity": "warning", "category": "logic", "lineRange": [10, 10], "description": "No error handling for fetch — should check response.ok before parsing" },
+  { "severity": "warning", "category": "logic", "lineRange": [14, 14], "description": "Accessing nested property config.database.host without null check" }
+]

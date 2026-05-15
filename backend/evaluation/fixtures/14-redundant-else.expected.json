@@ -1,0 +1,5 @@
+[
+  { "severity": "info", "category": "readability", "lineRange": [1, 15], "description": "Redundant else after return — can flatten with early returns" },
+  { "severity": "info", "category": "readability", "lineRange": [17, 25], "description": "Redundant else after return statements" },
+  { "severity": "info", "category": "readability", "lineRange": [27, 37], "description": "Chain of if-else returning — consider a lookup object or switch" }
+]

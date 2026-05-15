@@ -1,0 +1,5 @@
+[
+  { "severity": "info", "category": "style", "lineRange": [2, 2], "description": "Unnecessary return await — just return the promise directly" },
+  { "severity": "info", "category": "style", "lineRange": [6, 6], "description": "Unnecessary return await — return the promise directly" },
+  { "severity": "info", "category": "style", "lineRange": [10, 10], "description": "Unnecessary return await — return the promise directly" }
+]

@@ -1,0 +1,6 @@
+[
+  { "severity": "warning", "category": "logic", "lineRange": [10, 10], "description": "Using !count for boolean coercion — if count is 0 this is truthy, but intent may be wrong if count can be NaN" },
+  { "severity": "warning", "category": "logic", "lineRange": [11, 11], "description": "discount + 0 is an implicit type coercion trick — use Number() or explicit check" },
+  { "severity": "error", "category": "logic", "lineRange": [12, 12], "description": "parseInt without radix parameter and on a float — use Math.round or Math.floor instead" },
+  { "severity": "warning", "category": "logic", "lineRange": [17, 17], "description": "value + 0 === value is a fragile type check — use typeof instead" }
+]
