@@ -1,9 +1,11 @@
 import 'express-async-errors';
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import pinoHttp from 'pino-http';
 import pino from 'pino';
 import healthRouter from './routes/health';
+import authRouter from './routes/auth';
 import { errorHandler } from './middleware/errorHandler';
 import { env } from './config/env';
 
@@ -18,6 +20,7 @@ export function createApp(options?: { silent?: boolean }) {
   );
 
   app.use(express.json());
+  app.use(cookieParser());
 
   if (!options?.silent) {
     app.use(
@@ -28,6 +31,7 @@ export function createApp(options?: { silent?: boolean }) {
   }
 
   app.use('/api', healthRouter);
+  app.use('/api/auth', authRouter);
 
   app.use(errorHandler);
 

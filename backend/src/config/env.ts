@@ -11,6 +11,8 @@ const envSchema = z.object({
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info'),
   CORS_ALLOWED_ORIGINS: z.string().default('http://localhost:3000'),
+  JWT_ACCESS_SECRET: z.string().min(1),
+  JWT_REFRESH_SECRET: z.string().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;
