@@ -4,8 +4,10 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { createApp } from '../src/app';
 import { Issue } from '../src/models/Issue';
 import { Submission } from '../src/models/Submission';
+import { FakeLLMClient } from '../src/services/llm/FakeLLMClient';
+import type { LLMClient } from '../src/services/llm/types';
 
-const app = createApp({ silent: true });
+const app = createApp({ silent: true, llmClient: new FakeLLMClient() });
 let mongo: MongoMemoryServer;
 
 beforeAll(async () => {
@@ -63,6 +65,8 @@ describe('POST /api/submissions', () => {
         readability: expect.any(Number),
       }),
     );
+
+    expect(submission.summary).toEqual(expect.any(String));
 
     expect(issues).toHaveLength(3);
     issues.forEach((issue: Record<string, unknown>) => {
@@ -317,5 +321,58 @@ describe('DELETE /api/submissions/:id', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(404);
+  });
+});
+
+// ── LLM failure handling ─────────────────────────────────────
+
+describe('POST /api/submissions (LLM failure)', () => {
+  const failingClient: LLMClient = {
+    analyseCode: () => Promise.reject(new Error('LLM exploded')),
+  };
+  const failApp = createApp({ silent: true, llmClient: failingClient });
+
+  it('marks submission as failed and returns 502', async () => {
+    const regRes = await request(failApp)
+      .post('/api/auth/register')
+      .send({ email: 'fail@example.com', password: 'password123', displayName: 'Fail' });
+    const failToken = regRes.body.data.accessToken;
+
+    const res = await request(failApp)
+      .post('/api/submissions')
+      .set('Authorization', `Bearer ${failToken}`)
+      .send({ code: 'const x = 1;' });
+
+    expect(res.status).toBe(502);
+    expect(res.body.error.code).toBe('ANALYSIS_FAILED');
+    expect(res.body.error.message).toContain('LLM exploded');
+
+    // Submission still exists in DB with status 'failed' — code is preserved
+    const submissions = await Submission.find({ status: 'failed' });
+    expect(submissions).toHaveLength(1);
+    expect(submissions[0].code).toBe('const x = 1;');
+  });
+});
+
+describe('POST /api/submissions (LLM timeout)', () => {
+  const timeoutClient: LLMClient = {
+    analyseCode: () => Promise.reject(new Error('LLM call timed out')),
+  };
+  const timeoutApp = createApp({ silent: true, llmClient: timeoutClient });
+
+  it('returns 502 with timeout message', async () => {
+    const regRes = await request(timeoutApp)
+      .post('/api/auth/register')
+      .send({ email: 'timeout@example.com', password: 'password123', displayName: 'Timeout' });
+    const timeoutToken = regRes.body.data.accessToken;
+
+    const res = await request(timeoutApp)
+      .post('/api/submissions')
+      .set('Authorization', `Bearer ${timeoutToken}`)
+      .send({ code: 'const x = 1;' });
+
+    expect(res.status).toBe(502);
+    expect(res.body.error.code).toBe('ANALYSIS_FAILED');
+    expect(res.body.error.message).toContain('timed out');
   });
 });

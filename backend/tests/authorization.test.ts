@@ -2,8 +2,9 @@ import request from 'supertest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { createApp } from '../src/app';
+import { FakeLLMClient } from '../src/services/llm/FakeLLMClient';
 
-const app = createApp({ silent: true });
+const app = createApp({ silent: true, llmClient: new FakeLLMClient() });
 let mongo: MongoMemoryServer;
 
 beforeAll(async () => {

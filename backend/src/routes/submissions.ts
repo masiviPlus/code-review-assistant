@@ -1,14 +1,18 @@
 import { Request, Router } from 'express';
 import { z } from 'zod';
 import { Types } from 'mongoose';
+import pino from 'pino';
 import rateLimit from 'express-rate-limit';
 import { Submission } from '../models/Submission';
 import { Issue } from '../models/Issue';
 import { requireAuth } from '../middleware/requireAuth';
 import { AppError } from '../errors/AppError';
 import { env } from '../config/env';
+import type { LLMClient } from '../services/llm/types';
 
-const router = Router();
+const logger = pino({ name: 'submissions' });
+
+const LLM_TIMEOUT_MS = 30_000;
 
 // ── Rate limiting (per-user, keyed by userId from JWT) ───────
 
@@ -45,155 +49,164 @@ function assertOwnership(docUserId: Types.ObjectId, req: Request): void {
   }
 }
 
-// ── Hardcoded fake review (replaced by LLM later) ───────────
-
-function generateFakeReview(code: string) {
-  const lines = code.split('\n');
-  const scoreBreakdown = {
-    style: 72,
-    bestPractices: 65,
-    logic: 80,
-    readability: 78,
-  };
-  const scoreOverall = Math.round(
-    (scoreBreakdown.style +
-      scoreBreakdown.bestPractices +
-      scoreBreakdown.logic +
-      scoreBreakdown.readability) /
-      4,
-  );
-
-  const issues = [
-    {
-      severity: 'warning' as const,
-      category: 'style' as const,
-      lineNumber: 1,
-      message: 'Consider using descriptive variable names',
-      suggestion: 'Rename short variable names to reflect their purpose.',
-    },
-    {
-      severity: 'info' as const,
-      category: 'best_practice' as const,
-      lineNumber: Math.min(lines.length, 3),
-      message: 'Use const instead of let when the variable is never reassigned',
-      suggestion: 'Replace let with const for variables that do not change.',
-    },
-    {
-      severity: 'error' as const,
-      category: 'logic' as const,
-      lineNumber: Math.min(lines.length, 5),
-      message: 'Potential null reference detected',
-      suggestion: 'Add a null check before accessing the property.',
-    },
-  ];
-
-  return { scoreOverall, scoreBreakdown, issues };
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('LLM call timed out')), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
 }
 
-// All routes require authentication
-router.use(requireAuth);
+// ── Router factory ───────────────────────────────────────────
+// Accepts an LLMClient so we can inject FakeLLMClient in tests
+// and ClaudeClient in production.
 
-// ── POST /submissions ────────────────────────────────────────
+export function createSubmissionsRouter(llmClient: LLMClient) {
+  const router = Router();
 
-router.post('/', submissionLimiter, async (req, res) => {
-  const body = createSchema.parse(req.body);
-  const review = generateFakeReview(body.code);
+  // All routes require authentication
+  router.use(requireAuth);
 
-  const submission = await Submission.create({
-    userId: req.user!.userId,
-    code: body.code,
-    language: body.language,
-    status: 'complete',
-    scoreOverall: review.scoreOverall,
-    scoreBreakdown: review.scoreBreakdown,
+  // ── POST /submissions ──────────────────────────────────────
+  //
+  // Queue architecture note:
+  // Currently the LLM call runs inline (in-memory promise). To scale,
+  // replace the inline call with a job enqueue (e.g. BullMQ + Redis):
+  //   1. Save submission with status 'analysing', return 202 immediately.
+  //   2. A worker picks up the job, calls llmClient.analyseCode(),
+  //      updates the submission in Mongo, and emits a completion event.
+  //   3. Frontend polls GET /submissions/:id or listens via WebSocket.
+  // The LLMClient interface stays the same — only the orchestration changes.
+
+  router.post('/', submissionLimiter, async (req, res) => {
+    const body = createSchema.parse(req.body);
+
+    // Step 1: persist submission immediately so user code is never lost
+    const submission = await Submission.create({
+      userId: req.user!.userId,
+      code: body.code,
+      language: body.language,
+      status: 'analysing',
+    });
+
+    // Step 2: call LLM with timeout
+    try {
+      const result = await withTimeout(
+        llmClient.analyseCode(body.code, body.language),
+        LLM_TIMEOUT_MS,
+      );
+
+      // Step 3: save issues
+      const issues = await Issue.insertMany(
+        result.issues.map((issue) => ({
+          ...issue,
+          submissionId: submission._id,
+        })),
+      );
+
+      // Step 4: update submission with scores
+      submission.status = 'complete';
+      submission.scoreOverall = result.scoreOverall;
+      submission.scoreBreakdown = result.scoreBreakdown;
+      submission.summary = result.summary;
+      await submission.save();
+
+      res.status(201).json({
+        ok: true,
+        data: { submission, issues },
+      });
+    } catch (err) {
+      // Mark as failed but preserve the user's code
+      submission.status = 'failed';
+      await submission.save();
+
+      const message = err instanceof Error ? err.message : 'Analysis failed';
+      logger.error({ err, submissionId: submission._id }, 'LLM analysis failed');
+
+      throw new AppError(
+        `Code analysis failed: ${message}`,
+        'ANALYSIS_FAILED',
+        502,
+      );
+    }
   });
 
-  const issues = await Issue.insertMany(
-    review.issues.map((issue) => ({
-      ...issue,
-      submissionId: submission._id,
-    })),
-  );
+  // ── GET /submissions ───────────────────────────────────────
 
-  res.status(201).json({
-    ok: true,
-    data: { submission, issues },
-  });
-});
+  router.get('/', async (req, res) => {
+    const { limit, cursor } = listSchema.parse(req.query);
 
-// ── GET /submissions ─────────────────────────────────────────
+    const filter: Record<string, unknown> = {
+      userId: req.user!.userId,
+      deletedAt: null,
+    };
 
-router.get('/', async (req, res) => {
-  const { limit, cursor } = listSchema.parse(req.query);
+    if (cursor) {
+      filter._id = { $lt: new Types.ObjectId(cursor) };
+    }
 
-  const filter: Record<string, unknown> = {
-    userId: req.user!.userId,
-    deletedAt: null,
-  };
+    const submissions = await Submission.find(filter)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
+      .lean();
 
-  if (cursor) {
-    filter._id = { $lt: new Types.ObjectId(cursor) };
-  }
+    const hasMore = submissions.length > limit;
+    if (hasMore) submissions.pop();
 
-  const submissions = await Submission.find(filter)
-    .sort({ _id: -1 })
-    .limit(limit + 1)
-    .lean();
+    const nextCursor = hasMore
+      ? submissions[submissions.length - 1]._id.toString()
+      : null;
 
-  const hasMore = submissions.length > limit;
-  if (hasMore) submissions.pop();
-
-  const nextCursor = hasMore
-    ? submissions[submissions.length - 1]._id.toString()
-    : null;
-
-  res.json({
-    ok: true,
-    data: submissions,
-    pagination: { nextCursor },
-  });
-});
-
-// ── GET /submissions/:id ─────────────────────────────────────
-
-router.get('/:id', async (req, res) => {
-  const submission = await Submission.findOne({
-    _id: req.params.id,
-    deletedAt: null,
-  }).lean();
-
-  if (!submission) {
-    throw new AppError('Submission not found', 'NOT_FOUND', 404);
-  }
-
-  assertOwnership(submission.userId, req);
-
-  const issues = await Issue.find({ submissionId: submission._id }).lean();
-
-  res.json({
-    ok: true,
-    data: { submission, issues },
-  });
-});
-
-// ── DELETE /submissions/:id (soft delete) ────────────────────
-
-router.delete('/:id', async (req, res) => {
-  const submission = await Submission.findOne({
-    _id: req.params.id,
-    deletedAt: null,
+    res.json({
+      ok: true,
+      data: submissions,
+      pagination: { nextCursor },
+    });
   });
 
-  if (!submission) {
-    throw new AppError('Submission not found', 'NOT_FOUND', 404);
-  }
+  // ── GET /submissions/:id ───────────────────────────────────
 
-  assertOwnership(submission.userId, req);
+  router.get('/:id', async (req, res) => {
+    const submission = await Submission.findOne({
+      _id: req.params.id,
+      deletedAt: null,
+    }).lean();
 
-  submission.deletedAt = new Date();
-  await submission.save();
+    if (!submission) {
+      throw new AppError('Submission not found', 'NOT_FOUND', 404);
+    }
 
-  res.json({ ok: true });
-});
+    assertOwnership(submission.userId, req);
 
-export default router;
+    const issues = await Issue.find({ submissionId: submission._id }).lean();
+
+    res.json({
+      ok: true,
+      data: { submission, issues },
+    });
+  });
+
+  // ── DELETE /submissions/:id (soft delete) ──────────────────
+
+  router.delete('/:id', async (req, res) => {
+    const submission = await Submission.findOne({
+      _id: req.params.id,
+      deletedAt: null,
+    });
+
+    if (!submission) {
+      throw new AppError('Submission not found', 'NOT_FOUND', 404);
+    }
+
+    assertOwnership(submission.userId, req);
+
+    submission.deletedAt = new Date();
+    await submission.save();
+
+    res.json({ ok: true });
+  });
+
+  return router;
+}

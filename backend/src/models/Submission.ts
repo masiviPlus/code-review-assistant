@@ -20,6 +20,7 @@ const submissionSchema = new Schema(
     status: { type: String, enum: STATUSES, default: 'analysing' },
     scoreOverall: { type: Number },
     scoreBreakdown: { type: scoreBreakdownSchema },
+    summary: { type: String },
     llmRawResponse: { type: String },
     deletedAt: { type: Date, default: null },
   },

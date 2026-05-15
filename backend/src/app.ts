@@ -7,11 +7,13 @@ import pinoHttp from 'pino-http';
 import pino from 'pino';
 import healthRouter from './routes/health';
 import authRouter from './routes/auth';
-import submissionsRouter from './routes/submissions';
+import { createSubmissionsRouter } from './routes/submissions';
 import { errorHandler } from './middleware/errorHandler';
 import { env } from './config/env';
+import { createLLMClient } from './services/llm';
+import type { LLMClient } from './services/llm';
 
-export function createApp(options?: { silent?: boolean }) {
+export function createApp(options?: { silent?: boolean; llmClient?: LLMClient }) {
   const app = express();
 
   app.use(helmet());
@@ -34,9 +36,11 @@ export function createApp(options?: { silent?: boolean }) {
     );
   }
 
+  const llmClient = options?.llmClient ?? createLLMClient(env);
+
   app.use('/api', healthRouter);
   app.use('/api/auth', authRouter);
-  app.use('/api/submissions', submissionsRouter);
+  app.use('/api/submissions', createSubmissionsRouter(llmClient));
 
   app.use(errorHandler);
 
