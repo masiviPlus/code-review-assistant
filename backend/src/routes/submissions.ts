@@ -9,6 +9,7 @@ import { requireAuth } from '../middleware/requireAuth';
 import { AppError } from '../errors/AppError';
 import { env } from '../config/env';
 import type { LLMClient } from '../services/llm/types';
+import { applyScoring } from '../services/scoring';
 
 const logger = pino({ name: 'submissions' });
 
@@ -93,10 +94,13 @@ export function createSubmissionsRouter(llmClient: LLMClient) {
 
     // Step 2: call LLM with timeout
     try {
-      const result = await withTimeout(
+      const rawResult = await withTimeout(
         llmClient.analyseCode(body.code, body.language),
         LLM_TIMEOUT_MS,
       );
+
+      const codeLineCount = body.code.split('\n').length;
+      const result = applyScoring(rawResult, codeLineCount);
 
       // Step 3: save issues
       const issues = await Issue.insertMany(
