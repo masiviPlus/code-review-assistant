@@ -1,0 +1,6 @@
+[
+  { "severity": "error", "category": "logic", "lineRange": [2, 2], "description": "eval() with user input is a critical security vulnerability — allows arbitrary code execution" },
+  { "severity": "error", "category": "logic", "lineRange": [6, 6], "description": "new Function() is essentially eval — same security risk" },
+  { "severity": "error", "category": "logic", "lineRange": [10, 10], "description": "eval() with script parameter — remote code execution vulnerability" },
+  { "severity": "warning", "category": "logic", "lineRange": [15, 15], "description": "Using eval to parse JSON — use JSON.parse instead" }
+]

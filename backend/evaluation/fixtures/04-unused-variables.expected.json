@@ -1,0 +1,8 @@
+[
+  { "severity": "warning", "category": "style", "lineRange": [2, 2], "description": "Variable tax is declared but never used" },
+  { "severity": "warning", "category": "style", "lineRange": [3, 3], "description": "Variable discount is declared but never used" },
+  { "severity": "warning", "category": "style", "lineRange": [7, 7], "description": "Variable logger is declared but never used" },
+  { "severity": "warning", "category": "style", "lineRange": [8, 8], "description": "Variable debugMode is declared but never used" },
+  { "severity": "warning", "category": "style", "lineRange": [16, 16], "description": "Constant MAX_RETRIES is declared but never used" },
+  { "severity": "warning", "category": "style", "lineRange": [17, 17], "description": "Constant TIMEOUT is declared but never used" }
+]

@@ -1,0 +1,6 @@
+[
+  { "severity": "warning", "category": "style", "lineRange": [1, 3], "description": "Use const instead of var for variables that are never reassigned" },
+  { "severity": "warning", "category": "style", "lineRange": [5, 5], "description": "Use const instead of var for the items array" },
+  { "severity": "warning", "category": "style", "lineRange": [7, 7], "description": "Use let instead of var for loop variable i (block scoping)" },
+  { "severity": "warning", "category": "style", "lineRange": [6, 6], "description": "Use let instead of var for total (reassigned variable)" }
+]

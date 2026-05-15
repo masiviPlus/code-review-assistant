@@ -1,0 +1,6 @@
+[
+  { "severity": "error", "category": "logic", "lineRange": [5, 5], "description": "SQL injection — user input concatenated directly into query string" },
+  { "severity": "error", "category": "logic", "lineRange": [15, 15], "description": "SQL injection — template literal interpolation of user input in query" },
+  { "severity": "error", "category": "logic", "lineRange": [25, 25], "description": "SQL injection — req.params.id concatenated into DELETE query" },
+  { "severity": "warning", "category": "logic", "lineRange": [26, 26], "description": "No error handling on DELETE query — errors are silently ignored" }
+]

@@ -1,0 +1,5 @@
+[
+  { "severity": "warning", "category": "best_practice", "lineRange": [5, 7], "description": "console.log in middleware — use a proper logger (e.g. pino, winston) for production" },
+  { "severity": "warning", "category": "best_practice", "lineRange": [12, 15], "description": "console.log for debugging in route handler — remove or replace with structured logging" },
+  { "severity": "info", "category": "best_practice", "lineRange": [6, 6], "description": "Logging full headers may leak sensitive information (cookies, auth tokens)" }
+]

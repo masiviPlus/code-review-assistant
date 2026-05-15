@@ -1,0 +1,5 @@
+[
+  { "severity": "error", "category": "best_practice", "lineRange": [1, 13], "description": "Promise constructor anti-pattern — wrapping fetch (already a promise) in new Promise is unnecessary" },
+  { "severity": "warning", "category": "best_practice", "lineRange": [17, 20], "description": "Mixing await and .then() — use one style consistently (prefer await)" },
+  { "severity": "warning", "category": "logic", "lineRange": [26, 30], "description": "Sequential await in loop — use Promise.all for parallel execution" }
+]

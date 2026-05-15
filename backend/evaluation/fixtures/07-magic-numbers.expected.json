@@ -1,0 +1,6 @@
+[
+  { "severity": "warning", "category": "readability", "lineRange": [4, 5], "description": "Magic numbers 10 and 0.85 — extract to named constants (e.g. BULK_THRESHOLD, BULK_DISCOUNT)" },
+  { "severity": "warning", "category": "readability", "lineRange": [8, 11], "description": "Magic numbers 500, 12.99, 4.99 — extract shipping cost constants" },
+  { "severity": "warning", "category": "readability", "lineRange": [14, 14], "description": "Magic number 1.21 — extract to TAX_RATE constant" },
+  { "severity": "warning", "category": "readability", "lineRange": [16, 17], "description": "Magic numbers 1000 and 50 — extract to named constants" }
+]
