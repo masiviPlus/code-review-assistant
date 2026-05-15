@@ -1,14 +1,29 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
+import rateLimit from 'express-rate-limit';
 import { User } from '../models/User';
 import { RefreshToken } from '../models/RefreshToken';
 import { env } from '../config/env';
 import { requireAuth } from '../middleware/requireAuth';
+import { AppError } from '../errors/AppError';
 
 const router = Router();
+
+// ── Rate limiting ────────────────────────────────────────────
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: env.NODE_ENV === 'test' ? 10_000 : 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: {
+    ok: false,
+    error: { code: 'RATE_LIMITED', message: 'Too many attempts, try again later' },
+  },
+});
 
 // ── Zod schemas ──────────────────────────────────────────────
 
@@ -23,10 +38,13 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-// ── Helpers ──────────────────────────────────────────────────
+// ── Constants ────────────────────────────────────────────────
 
 const ACCESS_TOKEN_TTL = '15m';
-const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const REFRESH_TOKEN_TTL = '7d';
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+// ── Helpers ──────────────────────────────────────────────────
 
 function signAccessToken(userId: string, role: string): string {
   return jwt.sign({ sub: userId, role }, env.JWT_ACCESS_SECRET, {
@@ -36,7 +54,7 @@ function signAccessToken(userId: string, role: string): string {
 
 function signRefreshToken(userId: string): string {
   return jwt.sign({ sub: userId, jti: crypto.randomUUID() }, env.JWT_REFRESH_SECRET, {
-    expiresIn: '7d',
+    expiresIn: REFRESH_TOKEN_TTL,
   });
 }
 
@@ -52,7 +70,7 @@ async function persistRefreshToken(userId: string, rawToken: string): Promise<vo
   });
 }
 
-function setRefreshCookie(res: import('express').Response, token: string): void {
+function setRefreshCookie(res: Response, token: string): void {
   res.cookie('refresh_token', token, {
     httpOnly: true,
     secure: env.NODE_ENV === 'production',
@@ -62,7 +80,7 @@ function setRefreshCookie(res: import('express').Response, token: string): void 
   });
 }
 
-function clearRefreshCookie(res: import('express').Response): void {
+function clearRefreshCookie(res: Response): void {
   res.clearCookie('refresh_token', {
     httpOnly: true,
     secure: env.NODE_ENV === 'production',
@@ -71,21 +89,32 @@ function clearRefreshCookie(res: import('express').Response): void {
   });
 }
 
-function throwAuth(message: string, code: string, statusCode: number): never {
-  const err = new Error(message) as Error & { statusCode: number; code: string };
-  err.statusCode = statusCode;
-  err.code = code;
-  throw err;
+interface SerializableUser {
+  _id: unknown;
+  email: string;
+  displayName: string;
+  role?: string;
+  totalPoints?: number;
+  createdAt?: Date;
+}
+
+function serializeUser(user: SerializableUser) {
+  return {
+    id: user._id,
+    email: user.email,
+    displayName: user.displayName,
+    role: user.role,
+  };
 }
 
 // ── POST /auth/register ─────────────────────────────────────
 
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   const body = registerSchema.parse(req.body);
 
   const existing = await User.findOne({ email: body.email.toLowerCase() });
   if (existing) {
-    throwAuth('Email already in use', 'AUTH_EMAIL_TAKEN', 409);
+    throw new AppError('Email already in use', 'AUTH_EMAIL_TAKEN', 409);
   }
 
   const passwordHash = await bcrypt.hash(body.password, 12);
@@ -102,31 +131,23 @@ router.post('/register', async (req, res) => {
   setRefreshCookie(res, refreshToken);
   res.status(201).json({
     ok: true,
-    data: {
-      accessToken,
-      user: {
-        id: user._id,
-        email: user.email,
-        displayName: user.displayName,
-        role: user.role,
-      },
-    },
+    data: { accessToken, user: serializeUser(user) },
   });
 });
 
 // ── POST /auth/login ─────────────────────────────────────────
 
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   const body = loginSchema.parse(req.body);
 
   const user = await User.findOne({ email: body.email.toLowerCase() });
   if (!user) {
-    throwAuth('Invalid email or password', 'AUTH_INVALID_CREDENTIALS', 401);
+    throw new AppError('Invalid email or password', 'AUTH_INVALID_CREDENTIALS', 401);
   }
 
   const valid = await bcrypt.compare(body.password, user.passwordHash);
   if (!valid) {
-    throwAuth('Invalid email or password', 'AUTH_INVALID_CREDENTIALS', 401);
+    throw new AppError('Invalid email or password', 'AUTH_INVALID_CREDENTIALS', 401);
   }
 
   const accessToken = signAccessToken(user._id.toString(), user.role!);
@@ -136,15 +157,7 @@ router.post('/login', async (req, res) => {
   setRefreshCookie(res, refreshToken);
   res.json({
     ok: true,
-    data: {
-      accessToken,
-      user: {
-        id: user._id,
-        email: user.email,
-        displayName: user.displayName,
-        role: user.role,
-      },
-    },
+    data: { accessToken, user: serializeUser(user) },
   });
 });
 
@@ -153,7 +166,7 @@ router.post('/login', async (req, res) => {
 router.post('/refresh', async (req, res) => {
   const rawToken: string | undefined = req.cookies?.refresh_token;
   if (!rawToken) {
-    throwAuth('Missing refresh token', 'AUTH_TOKEN_INVALID', 401);
+    throw new AppError('Missing refresh token', 'AUTH_TOKEN_INVALID', 401);
   }
 
   let payload: { sub: string };
@@ -162,7 +175,7 @@ router.post('/refresh', async (req, res) => {
   } catch (err) {
     clearRefreshCookie(res);
     const isExpired = err instanceof jwt.TokenExpiredError;
-    throwAuth(
+    throw new AppError(
       isExpired ? 'Refresh token expired' : 'Invalid refresh token',
       isExpired ? 'AUTH_TOKEN_EXPIRED' : 'AUTH_TOKEN_INVALID',
       401,
@@ -176,20 +189,18 @@ router.post('/refresh', async (req, res) => {
 
   if (!stored) {
     clearRefreshCookie(res);
-    throwAuth('Refresh token revoked or not found', 'AUTH_TOKEN_INVALID', 401);
+    throw new AppError('Refresh token revoked or not found', 'AUTH_TOKEN_INVALID', 401);
   }
 
-  // Revoke old token
   stored.revokedAt = new Date();
   await stored.save();
 
   const user = await User.findById(payload.sub);
   if (!user) {
     clearRefreshCookie(res);
-    throwAuth('User not found', 'AUTH_TOKEN_INVALID', 401);
+    throw new AppError('User not found', 'AUTH_TOKEN_INVALID', 401);
   }
 
-  // Issue new pair
   const accessToken = signAccessToken(user._id.toString(), user.role!);
   const newRefreshToken = signRefreshToken(user._id.toString());
   await persistRefreshToken(user._id.toString(), newRefreshToken);
@@ -222,16 +233,13 @@ router.post('/logout', async (req, res) => {
 router.get('/me', requireAuth, async (req, res) => {
   const user = await User.findById(req.user!.userId).select('-passwordHash');
   if (!user) {
-    throwAuth('User not found', 'AUTH_TOKEN_INVALID', 401);
+    throw new AppError('User not found', 'AUTH_TOKEN_INVALID', 401);
   }
 
   res.json({
     ok: true,
     data: {
-      id: user._id,
-      email: user.email,
-      displayName: user.displayName,
-      role: user.role,
+      ...serializeUser(user),
       totalPoints: user.totalPoints,
       createdAt: user.createdAt,
     },

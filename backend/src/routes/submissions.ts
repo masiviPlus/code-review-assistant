@@ -1,11 +1,31 @@
-import { Router } from 'express';
+import { Request, Router } from 'express';
 import { z } from 'zod';
 import { Types } from 'mongoose';
+import rateLimit from 'express-rate-limit';
 import { Submission } from '../models/Submission';
 import { Issue } from '../models/Issue';
 import { requireAuth } from '../middleware/requireAuth';
+import { AppError } from '../errors/AppError';
+import { env } from '../config/env';
 
 const router = Router();
+
+// ── Rate limiting (per-user, keyed by userId from JWT) ───────
+
+const submissionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  limit: env.NODE_ENV === 'test' ? 10_000 : 20,
+  keyGenerator: (req: Request) => req.user!.userId.toString(),
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  validate: false,
+  message: {
+    ok: false,
+    error: { code: 'RATE_LIMITED', message: 'Submission limit reached, try again later' },
+  },
+});
+
+// ── Zod schemas ──────────────────────────────────────────────
 
 const createSchema = z.object({
   code: z.string().min(1).max(10_000),
@@ -17,24 +37,12 @@ const listSchema = z.object({
   cursor: z.string().optional(),
 });
 
-function throwForbidden(): never {
-  const err = new Error('You do not have access to this resource') as Error & {
-    statusCode: number;
-    code: string;
-  };
-  err.statusCode = 403;
-  err.code = 'AUTH_FORBIDDEN';
-  throw err;
-}
+// ── Helpers ──────────────────────────────────────────────────
 
-function throwNotFound(): never {
-  const err = new Error('Submission not found') as Error & {
-    statusCode: number;
-    code: string;
-  };
-  err.statusCode = 404;
-  err.code = 'NOT_FOUND';
-  throw err;
+function assertOwnership(docUserId: Types.ObjectId, req: Request): void {
+  if (!docUserId.equals(req.user!.userId) && req.user!.role !== 'admin') {
+    throw new AppError('You do not have access to this resource', 'AUTH_FORBIDDEN', 403);
+  }
 }
 
 // ── Hardcoded fake review (replaced by LLM later) ───────────
@@ -87,7 +95,7 @@ router.use(requireAuth);
 
 // ── POST /submissions ────────────────────────────────────────
 
-router.post('/', async (req, res) => {
+router.post('/', submissionLimiter, async (req, res) => {
   const body = createSchema.parse(req.body);
   const review = generateFakeReview(body.code);
 
@@ -152,17 +160,15 @@ router.get('/:id', async (req, res) => {
   const submission = await Submission.findOne({
     _id: req.params.id,
     deletedAt: null,
-  });
+  }).lean();
 
   if (!submission) {
-    throwNotFound();
+    throw new AppError('Submission not found', 'NOT_FOUND', 404);
   }
 
-  if (!submission.userId.equals(req.user!.userId) && req.user!.role !== 'admin') {
-    throwForbidden();
-  }
+  assertOwnership(submission.userId, req);
 
-  const issues = await Issue.find({ submissionId: submission._id });
+  const issues = await Issue.find({ submissionId: submission._id }).lean();
 
   res.json({
     ok: true,
@@ -179,12 +185,10 @@ router.delete('/:id', async (req, res) => {
   });
 
   if (!submission) {
-    throwNotFound();
+    throw new AppError('Submission not found', 'NOT_FOUND', 404);
   }
 
-  if (!submission.userId.equals(req.user!.userId) && req.user!.role !== 'admin') {
-    throwForbidden();
-  }
+  assertOwnership(submission.userId, req);
 
   submission.deletedAt = new Date();
   await submission.save();

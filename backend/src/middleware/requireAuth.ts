@@ -2,6 +2,7 @@ import { RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
 import { env } from '../config/env';
+import { AppError } from '../errors/AppError';
 
 interface AccessTokenPayload {
   sub: string;
@@ -11,13 +12,7 @@ interface AccessTokenPayload {
 export const requireAuth: RequestHandler = (req, _res, next) => {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
-    const err = new Error('Missing or malformed Authorization header') as Error & {
-      statusCode: number;
-      code: string;
-    };
-    err.statusCode = 401;
-    err.code = 'AUTH_TOKEN_INVALID';
-    throw err;
+    throw new AppError('Missing or malformed Authorization header', 'AUTH_TOKEN_INVALID', 401);
   }
 
   const token = header.slice(7);
@@ -31,12 +26,10 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
     next();
   } catch (err) {
     const isExpired = err instanceof jwt.TokenExpiredError;
-    const appErr = new Error(isExpired ? 'Access token expired' : 'Invalid access token') as Error & {
-      statusCode: number;
-      code: string;
-    };
-    appErr.statusCode = 401;
-    appErr.code = isExpired ? 'AUTH_TOKEN_EXPIRED' : 'AUTH_TOKEN_INVALID';
-    throw appErr;
+    throw new AppError(
+      isExpired ? 'Access token expired' : 'Invalid access token',
+      isExpired ? 'AUTH_TOKEN_EXPIRED' : 'AUTH_TOKEN_INVALID',
+      401,
+    );
   }
 };

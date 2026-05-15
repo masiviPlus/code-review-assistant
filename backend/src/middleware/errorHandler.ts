@@ -1,13 +1,9 @@
 import { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
 import pino from 'pino';
+import { AppError } from '../errors/AppError';
 
 const logger = pino({ name: 'error-handler' });
-
-interface AppError extends Error {
-  statusCode?: number;
-  code?: string;
-}
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof ZodError) {
@@ -22,18 +18,18 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
 
-  const appErr = err as AppError;
-  const statusCode = appErr.statusCode ?? 500;
-  const code = appErr.code ?? 'INTERNAL_ERROR';
-  const message =
-    statusCode === 500 ? 'Internal server error' : appErr.message;
-
-  if (statusCode === 500) {
-    logger.error({ err }, 'Unhandled error');
+  if (err instanceof AppError) {
+    res.status(err.statusCode).json({
+      ok: false,
+      error: { code: err.code, message: err.message },
+    });
+    return;
   }
 
-  res.status(statusCode).json({
+  logger.error({ err }, 'Unhandled error');
+
+  res.status(500).json({
     ok: false,
-    error: { code, message },
+    error: { code: 'INTERNAL_ERROR', message: 'Internal server error' },
   });
 };

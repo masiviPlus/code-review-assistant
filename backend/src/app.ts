@@ -1,5 +1,6 @@
 import 'express-async-errors';
 import express from 'express';
+import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import pinoHttp from 'pino-http';
@@ -12,6 +13,8 @@ import { env } from './config/env';
 
 export function createApp(options?: { silent?: boolean }) {
   const app = express();
+
+  app.use(helmet());
 
   app.use(
     cors({
