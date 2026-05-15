@@ -13,6 +13,8 @@ const envSchema = z.object({
   CORS_ALLOWED_ORIGINS: z.string().default('http://localhost:3000'),
   JWT_ACCESS_SECRET: z.string().min(1),
   JWT_REFRESH_SECRET: z.string().min(1),
+  LLM_PROVIDER: z.enum(['claude', 'fake']).default('fake'),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
