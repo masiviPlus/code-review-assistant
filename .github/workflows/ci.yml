@@ -14,6 +14,8 @@ jobs:
         working-directory: backend
     env:
       MONGODB_URI: mongodb://localhost:27017/test
+      JWT_ACCESS_SECRET: ci-test-access-secret
+      JWT_REFRESH_SECRET: ci-test-refresh-secret
     steps:
       - uses: actions/checkout@v4
 
