@@ -53,11 +53,11 @@ describe('Submission ownership', () => {
     expect(create.status).toBe(201);
 
     const get = await request(app)
-      .get(`/api/submissions/${create.body.data._id}`)
+      .get(`/api/submissions/${create.body.data.submission._id}`)
       .set('Authorization', `Bearer ${tokenA}`);
 
     expect(get.status).toBe(200);
-    expect(get.body.data.code).toBe('const x = 1;');
+    expect(get.body.data.submission.code).toBe('const x = 1;');
   });
 
   it('user cannot read another user\'s submission', async () => {
@@ -67,7 +67,7 @@ describe('Submission ownership', () => {
       .send({ code: 'const x = 1;' });
 
     const res = await request(app)
-      .get(`/api/submissions/${create.body.data._id}`)
+      .get(`/api/submissions/${create.body.data.submission._id}`)
       .set('Authorization', `Bearer ${tokenB}`);
 
     expect(res.status).toBe(403);
@@ -81,7 +81,7 @@ describe('Submission ownership', () => {
       .send({ code: 'const x = 1;' });
 
     const res = await request(app)
-      .delete(`/api/submissions/${create.body.data._id}`)
+      .delete(`/api/submissions/${create.body.data.submission._id}`)
       .set('Authorization', `Bearer ${tokenB}`);
 
     expect(res.status).toBe(403);
@@ -121,7 +121,7 @@ describe('Submission ownership', () => {
       .send({ code: 'const x = 1;' });
 
     const res = await request(app)
-      .delete(`/api/submissions/${create.body.data._id}`)
+      .delete(`/api/submissions/${create.body.data.submission._id}`)
       .set('Authorization', `Bearer ${tokenA}`);
 
     expect(res.status).toBe(200);
@@ -170,7 +170,7 @@ describe('requireRole middleware', () => {
       .send({ code: 'admin code' });
 
     const res = await request(app)
-      .get(`/api/submissions/${create.body.data._id}`)
+      .get(`/api/submissions/${create.body.data.submission._id}`)
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(403);
@@ -207,10 +207,10 @@ describe('requireRole middleware', () => {
     );
 
     const res = await request(app)
-      .get(`/api/submissions/${create.body.data._id}`)
+      .get(`/api/submissions/${create.body.data.submission._id}`)
       .set('Authorization', `Bearer ${adminAccessToken}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.data.code).toBe('user code');
+    expect(res.body.data.submission.code).toBe('user code');
   });
 });
