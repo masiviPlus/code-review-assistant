@@ -12,6 +12,7 @@
     "seed": "ts-node src/db/seed.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.96.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
