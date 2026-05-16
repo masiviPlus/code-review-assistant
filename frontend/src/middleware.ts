@@ -16,7 +16,7 @@ export function middleware(request: NextRequest) {
 
   // Authenticated users hitting /login or /register → redirect to home
   if (hasSession && AUTH_PAGES.some((p) => pathname.startsWith(p))) {
-    return NextResponse.redirect(new URL('/', request.url));
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   // Unauthenticated users hitting a protected route → redirect to login

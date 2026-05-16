@@ -76,12 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     (async () => {
-      const res = await apiWithAuth<{
-        id: string;
-        email: string;
-        displayName: string;
-        role: string;
-      }>('/api/auth/me');
+      const res = await apiWithAuth<User>('/api/auth/me');
 
       if (!cancelled) {
         if (res.ok) {

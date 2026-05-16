@@ -44,12 +44,6 @@ interface Submission {
   createdAt: string;
 }
 
-/* The GET /api/submissions response has a non-standard envelope:
-   { ok, data: Submission[], pagination: { nextCursor } }
-   The pagination field sits outside `data`, but our api client
-   only returns the parsed JSON body, so we type `data` as the
-   array and ignore pagination for the dashboard. */
-
 /* ------------------------------------------------------------------ */
 /*  Stat helpers                                                       */
 /* ------------------------------------------------------------------ */
@@ -75,7 +69,6 @@ function computeStreak(submissions: Submission[]): number {
 
   let streak = 0;
   const now = new Date();
-  // Start from today, walk backwards
   for (let i = 0; i < 365; i++) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
@@ -83,7 +76,6 @@ function computeStreak(submissions: Submission[]): number {
     if (days.has(key)) {
       streak++;
     } else if (i === 0) {
-      // Today has no submission — that's OK, still check yesterday
       continue;
     } else {
       break;
@@ -121,14 +113,20 @@ function buildChartData(submissions: Submission[]) {
     .slice(0, 20)
     .reverse()
     .map((s, i) => ({
-      index: i + 1,
+      index: i,
       score: s.scoreOverall!,
-      date: new Date(s.createdAt).toLocaleDateString(undefined, {
+      label: new Date(s.createdAt).toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
       }),
     }));
 }
+
+/* ------------------------------------------------------------------ */
+/*  Constants                                                          */
+/* ------------------------------------------------------------------ */
+
+const FETCH_LIMIT = 50;
 
 /* ------------------------------------------------------------------ */
 /*  Page                                                               */
@@ -137,16 +135,18 @@ function buildChartData(submissions: Submission[]) {
 export default function DashboardPage() {
   const { user } = useUser();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       const res = await apiWithAuth<Submission[]>(
-        '/api/submissions?limit=50',
+        `/api/submissions?limit=${FETCH_LIMIT}`,
       );
       if (res.ok) {
         setSubmissions(res.data);
+        setHasMore(res.data.length === FETCH_LIMIT);
       } else {
         setError(res.error.message);
       }
@@ -161,7 +161,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-[calc(100vh-2.75rem)] items-center justify-center text-sm text-muted-foreground">
         Loading…
       </div>
     );
@@ -169,7 +169,7 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4">
+      <div className="flex h-[calc(100vh-2.75rem)] flex-col items-center justify-center gap-4">
         <p className="text-sm text-destructive">{error}</p>
         <Button variant="outline" size="sm" asChild>
           <Link href="/submit">Go to editor</Link>
@@ -181,7 +181,7 @@ export default function DashboardPage() {
   /* ---- Empty state ---- */
   if (submissions.length === 0) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center px-4">
+      <div className="flex h-[calc(100vh-2.75rem)] flex-col items-center justify-center px-4">
         <Code className="mb-4 h-10 w-10 text-muted-foreground/50" />
         <h1 className="text-lg font-semibold tracking-tight">
           No submissions yet
@@ -198,27 +198,18 @@ export default function DashboardPage() {
     );
   }
 
+  const submissionCountLabel = hasMore
+    ? `${FETCH_LIMIT}+`
+    : String(submissions.length);
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      {/* ---- Header ---- */}
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Dashboard</h1>
-          {user && (
-            <p className="text-sm text-muted-foreground">{user.displayName}</p>
-          )}
-        </div>
-        <Button size="sm" asChild>
-          <Link href="/submit">New submission</Link>
-        </Button>
-      </div>
-
       {/* ---- Stats row ---- */}
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard
           icon={<FileCode className="h-4 w-4" />}
           label="Submissions"
-          value={String(submissions.length)}
+          value={submissionCountLabel}
         />
         <StatCard
           icon={<TrendingUp className="h-4 w-4" />}
@@ -253,10 +244,8 @@ export default function DashboardPage() {
                   tickLine={false}
                   axisLine={false}
                   stroke="hsl(var(--muted-foreground))"
-                  tickFormatter={(i) => {
-                    const point = chartData[i - 1];
-                    return point ? point.date : '';
-                  }}
+                  tickFormatter={(i: number) => chartData[i]?.label ?? ''}
+                  interval="preserveStartEnd"
                 />
                 <YAxis
                   domain={[0, 100]}
@@ -273,11 +262,8 @@ export default function DashboardPage() {
                     border: '1px solid hsl(var(--border))',
                     boxShadow: 'none',
                   }}
-                  labelFormatter={(i) => {
-                    const point = chartData[Number(i) - 1];
-                    return point ? point.date : '';
-                  }}
                   formatter={(value) => [`${value}`, 'Score']}
+                  labelFormatter={(i) => chartData[Number(i)]?.label ?? ''}
                 />
                 <Line
                   type="monotone"
