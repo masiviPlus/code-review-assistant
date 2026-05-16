@@ -18,14 +18,29 @@ export async function api<T>(
 ): Promise<ApiResponse<T>> {
   const url = `${API_BASE}${path}`;
 
-  const res = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-    ...options,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
+      ...options,
+    });
+  } catch {
+    return {
+      ok: false,
+      error: { code: 'NETWORK_ERROR', message: 'Could not reach the server. Is the backend running?' },
+    };
+  }
 
-  const body: ApiResponse<T> = await res.json();
-  return body;
+  try {
+    const body: ApiResponse<T> = await res.json();
+    return body;
+  } catch {
+    return {
+      ok: false,
+      error: { code: 'PARSE_ERROR', message: `Unexpected response (HTTP ${res.status})` },
+    };
+  }
 }

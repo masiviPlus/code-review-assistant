@@ -1,8 +1,14 @@
+'use client';
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ApiStatus } from '@/components/api-status';
+import { useUser, useLogout } from '@/contexts/auth-context';
 
 export default function Home() {
+  const { user, loading } = useUser();
+  const logout = useLogout();
+
   return (
     <div className="flex min-h-screen flex-col">
       <main className="mx-auto max-w-2xl flex-1 px-6 py-24">
@@ -14,10 +20,29 @@ export default function Home() {
           quality, maintainability, and common pitfalls — with a score and
           actionable suggestions for every submission.
         </p>
-        <div className="mt-8">
-          <Button asChild>
-            <Link href="/login">Sign in</Link>
-          </Button>
+        <div className="mt-8 flex items-center gap-3">
+          {loading ? null : user ? (
+            <>
+              <Button asChild>
+                <Link href="/submit">Submit code</Link>
+              </Button>
+              <Button variant="outline" onClick={logout}>
+                Sign out
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {user.displayName}
+              </span>
+            </>
+          ) : (
+            <>
+              <Button asChild>
+                <Link href="/login">Sign in</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/register">Create account</Link>
+              </Button>
+            </>
+          )}
         </div>
       </main>
       <footer className="border-t border-border px-6 py-4">

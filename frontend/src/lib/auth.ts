@@ -33,13 +33,28 @@ async function authFetch<T>(
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-    credentials: 'include', // send refresh_token cookie
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
+  } catch {
+    return {
+      ok: false,
+      error: { code: 'NETWORK_ERROR', message: 'Could not reach the server. Is the backend running?' },
+    };
+  }
 
-  return res.json() as Promise<ApiResponse<T>>;
+  try {
+    return (await res.json()) as ApiResponse<T>;
+  } catch {
+    return {
+      ok: false,
+      error: { code: 'PARSE_ERROR', message: `Unexpected response (HTTP ${res.status})` },
+    };
+  }
 }
 
 /* ------------------------------------------------------------------ */

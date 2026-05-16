@@ -12,16 +12,16 @@ const AUTH_PAGES = ['/login', '/register'];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const hasRefreshToken = request.cookies.has('refresh_token');
+  const hasSession = request.cookies.has('logged_in');
 
   // Authenticated users hitting /login or /register → redirect to home
-  if (hasRefreshToken && AUTH_PAGES.some((p) => pathname.startsWith(p))) {
+  if (hasSession && AUTH_PAGES.some((p) => pathname.startsWith(p))) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
   // Unauthenticated users hitting a protected route → redirect to login
   if (
-    !hasRefreshToken &&
+    !hasSession &&
     PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))
   ) {
     const loginUrl = new URL('/login', request.url);

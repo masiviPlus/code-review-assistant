@@ -13,6 +13,20 @@ import { api } from '@/lib/api';
 import { apiWithAuth, setAccessToken } from '@/lib/auth';
 
 /* ------------------------------------------------------------------ */
+/*  Session flag cookie — visible to Next.js middleware so it can      */
+/*  gate protected routes. The real refresh token has                   */
+/*  path=/api/auth and is invisible to the middleware.                  */
+/* ------------------------------------------------------------------ */
+
+function setSessionFlag(active: boolean) {
+  if (active) {
+    document.cookie = 'logged_in=1; path=/; max-age=604800; SameSite=Lax';
+  } else {
+    document.cookie = 'logged_in=; path=/; max-age=0';
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -70,8 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!cancelled) {
         if (res.ok) {
+          setSessionFlag(true);
           setState({ user: res.data, loading: false });
         } else {
+          setSessionFlag(false);
           setState({ user: null, loading: false });
         }
       }
@@ -95,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (res.ok) {
         setAccessToken(res.data.accessToken);
+        setSessionFlag(true);
         setState({ user: res.data.user, loading: false });
         return { ok: true };
       }
@@ -121,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (res.ok) {
         setAccessToken(res.data.accessToken);
+        setSessionFlag(true);
         setState({ user: res.data.user, loading: false });
         return { ok: true };
       }
@@ -136,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       credentials: 'include',
     });
     setAccessToken(null);
+    setSessionFlag(false);
     setState({ user: null, loading: false });
   }, []);
 
