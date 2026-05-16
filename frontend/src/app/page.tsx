@@ -24,14 +24,14 @@ export default function Home() {
           {loading ? null : user ? (
             <>
               <Button asChild>
+                <Link href="/dashboard">Dashboard</Link>
+              </Button>
+              <Button variant="outline" asChild>
                 <Link href="/submit">Submit code</Link>
               </Button>
-              <Button variant="outline" onClick={logout}>
+              <Button variant="ghost" onClick={logout}>
                 Sign out
               </Button>
-              <span className="text-sm text-muted-foreground">
-                {user.displayName}
-              </span>
             </>
           ) : (
             <>

@@ -35,6 +35,7 @@ interface User {
   email: string;
   displayName: string;
   role: string;
+  totalPoints?: number;
 }
 
 interface AuthState {
