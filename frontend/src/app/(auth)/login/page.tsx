@@ -37,7 +37,7 @@ function LoginForm() {
     try {
       const result = await login(values.email, values.password);
       if (result.ok) {
-        router.push(searchParams.get('from') ?? '/submit');
+        router.push(searchParams.get('from') ?? '/dashboard');
       } else {
         setServerError(result.error.message);
       }

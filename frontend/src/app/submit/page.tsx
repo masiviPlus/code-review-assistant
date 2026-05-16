@@ -112,6 +112,8 @@ export default function SubmitPage() {
   const [error, setError] = useState<string | null>(null);
   const [sampleIndex, setSampleIndex] = useState(0);
 
+  const nextSample = SAMPLES[sampleIndex];
+
   const handleEditorMount: OnMount = (ed) => {
     editorRef.current = ed;
   };
@@ -153,14 +155,10 @@ export default function SubmitPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-[calc(100vh-2.75rem)] flex-col">
       {/* ---- Toolbar ---- */}
-      <header className="flex items-center justify-between border-b border-border px-4 py-2">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2">
         <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold tracking-tight">
-            Submit code
-          </h1>
-
           {/* Language selector */}
           <div className="relative">
             <select
@@ -195,7 +193,7 @@ export default function SubmitPage() {
 
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={loadSample}>
-            Sample code
+            Try: {nextSample.label}
           </Button>
           <Button
             size="sm"
@@ -205,7 +203,7 @@ export default function SubmitPage() {
             {submitting ? 'Analysing\u2026' : 'Submit for review'}
           </Button>
         </div>
-      </header>
+      </div>
 
       {/* ---- Error banner ---- */}
       {error && (

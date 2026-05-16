@@ -11,7 +11,6 @@ import {
   ChevronDown,
   ChevronRight,
   Info,
-  ArrowLeft,
 } from 'lucide-react';
 
 import { apiWithAuth } from '@/lib/auth';
@@ -43,9 +42,9 @@ interface Submission {
   code: string;
   language: string;
   status: string;
-  scoreOverall: number;
-  scoreBreakdown: ScoreBreakdown;
-  summary: string;
+  scoreOverall?: number;
+  scoreBreakdown?: ScoreBreakdown;
+  summary?: string;
   createdAt: string;
 }
 
@@ -225,7 +224,7 @@ export default function SubmissionPage() {
   /* ---- Loading / error states ---- */
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-[calc(100vh-2.75rem)] items-center justify-center text-sm text-muted-foreground">
         Loading review…
       </div>
     );
@@ -233,7 +232,7 @@ export default function SubmissionPage() {
 
   if (error || !data) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4">
+      <div className="flex h-[calc(100vh-2.75rem)] flex-col items-center justify-center gap-4">
         <p className="text-sm text-destructive">{error ?? 'Submission not found'}</p>
         <Button variant="outline" size="sm" asChild>
           <Link href="/submit">Back to editor</Link>
@@ -244,26 +243,43 @@ export default function SubmissionPage() {
 
   const { submission, issues } = data;
 
-  return (
-    <div className="flex h-screen flex-col">
-      {/* ---- Header ---- */}
-      <header className="flex items-center gap-3 border-b border-border px-4 py-2">
-        <Button variant="ghost" size="sm" asChild className="gap-1.5">
-          <Link href="/submit">
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Editor
-          </Link>
+  /* ---- Failed or still analysing ---- */
+  if (submission.status === 'failed') {
+    return (
+      <div className="flex h-[calc(100vh-2.75rem)] flex-col items-center justify-center gap-4">
+        <AlertCircle className="h-8 w-8 text-destructive" />
+        <p className="text-sm font-medium">Analysis failed</p>
+        <p className="max-w-sm text-center text-sm text-muted-foreground">
+          {submission.summary ?? 'The code analysis could not be completed. Please try submitting again.'}
+        </p>
+        <Button size="sm" asChild>
+          <Link href="/submit">Try again</Link>
         </Button>
-        <div className="h-4 w-px bg-border" />
+      </div>
+    );
+  }
+
+  if (submission.status === 'analysing') {
+    return (
+      <div className="flex h-[calc(100vh-2.75rem)] items-center justify-center text-sm text-muted-foreground">
+        Analysis in progress… Refresh to check.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-[calc(100vh-2.75rem)] flex-col">
+      {/* ---- Subheader ---- */}
+      <div className="flex items-center gap-3 border-b border-border px-4 py-1.5">
         <span className="text-xs text-muted-foreground">
           {new Date(submission.createdAt).toLocaleString()}
         </span>
-      </header>
+      </div>
 
       {/* ---- Main layout ---- */}
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col-reverse lg:flex-row">
         {/* ---- Left: code editor ---- */}
-        <div className="flex-1 border-b border-border lg:border-b-0 lg:border-r min-h-[300px]">
+        <div className="flex-1 border-t border-border lg:border-r lg:border-t-0 min-h-[200px]">
           <Editor
             defaultLanguage={submission.language}
             value={submission.code}
@@ -294,7 +310,7 @@ export default function SubmissionPage() {
           />
         </div>
 
-        {/* ---- Right: review panel ---- */}
+        {/* ---- Right: review panel (on mobile, this appears ABOVE the code) ---- */}
         <div className="w-full overflow-y-auto lg:w-[420px] lg:min-w-[360px]">
           {/* Score */}
           <div className="border-b border-border p-4">
@@ -302,10 +318,10 @@ export default function SubmissionPage() {
               <span
                 className={cn(
                   'text-4xl font-bold tabular-nums tracking-tight',
-                  scoreColor(submission.scoreOverall),
+                  scoreColor(submission.scoreOverall ?? 0),
                 )}
               >
-                {submission.scoreOverall}
+                {submission.scoreOverall ?? '—'}
               </span>
               <span className="text-sm text-muted-foreground">/ 100</span>
             </div>
@@ -317,32 +333,34 @@ export default function SubmissionPage() {
           </div>
 
           {/* Breakdown bars */}
-          <div className="border-b border-border p-4">
-            <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Breakdown
-            </h3>
-            <div className="space-y-2.5">
-              {BREAKDOWN_LABELS.map(({ key, label }) => {
-                const value = submission.scoreBreakdown[key];
-                return (
-                  <div key={key}>
-                    <div className="mb-1 flex items-center justify-between text-xs">
-                      <span className="font-medium">{label}</span>
-                      <span className="tabular-nums text-muted-foreground">
-                        {value}
-                      </span>
+          {submission.scoreBreakdown && (
+            <div className="border-b border-border p-4">
+              <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Breakdown
+              </h3>
+              <div className="space-y-2.5">
+                {BREAKDOWN_LABELS.map(({ key, label }) => {
+                  const value = submission.scoreBreakdown![key];
+                  return (
+                    <div key={key}>
+                      <div className="mb-1 flex items-center justify-between text-xs">
+                        <span className="font-medium">{label}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {value}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-secondary">
+                        <div
+                          className={cn('h-full rounded-full transition-all', barColor(value))}
+                          style={{ width: `${value}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-1.5 w-full rounded-full bg-secondary">
-                      <div
-                        className={cn('h-full rounded-full transition-all', barColor(value))}
-                        style={{ width: `${value}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Issues */}
           <div className="p-4">

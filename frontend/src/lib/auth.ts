@@ -113,6 +113,12 @@ export async function apiWithAuth<T>(
     if (refreshed) {
       return authFetch<T>(path, options);
     }
+
+    // Refresh failed — session is dead. Clear cookie and redirect.
+    if (typeof document !== 'undefined') {
+      document.cookie = 'logged_in=; path=/; max-age=0';
+      window.location.href = '/login';
+    }
   }
 
   return result;
