@@ -39,15 +39,21 @@ export default function RegisterPage() {
 
   async function onSubmit(values: RegisterValues) {
     setServerError(null);
-    const result = await registerUser(
-      values.email,
-      values.password,
-      values.displayName,
-    );
-    if (result.ok) {
-      router.push('/');
-    } else {
-      setServerError(result.error.message);
+    try {
+      const result = await registerUser(
+        values.email,
+        values.password,
+        values.displayName,
+      );
+      if (result.ok) {
+        router.push('/submit');
+      } else {
+        setServerError(result.error.message);
+      }
+    } catch (err) {
+      setServerError(
+        err instanceof Error ? err.message : 'Something went wrong',
+      );
     }
   }
 

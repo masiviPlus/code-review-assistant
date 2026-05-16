@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,8 +18,9 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const login = useLogin();
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -33,11 +34,17 @@ export default function LoginPage() {
 
   async function onSubmit(values: LoginValues) {
     setServerError(null);
-    const result = await login(values.email, values.password);
-    if (result.ok) {
-      router.push('/');
-    } else {
-      setServerError(result.error.message);
+    try {
+      const result = await login(values.email, values.password);
+      if (result.ok) {
+        router.push(searchParams.get('from') ?? '/submit');
+      } else {
+        setServerError(result.error.message);
+      }
+    } catch (err) {
+      setServerError(
+        err instanceof Error ? err.message : 'Something went wrong',
+      );
     }
   }
 
@@ -101,5 +108,13 @@ export default function LoginPage() {
         </Link>
       </p>
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }
