@@ -15,6 +15,7 @@ export default tseslint.config(
         projectService: {
           allowDefaultProject: ['tests/*.ts'],
           defaultProject: 'tsconfig.test.json',
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 16,
         },
         tsconfigRootDir: import.meta.dirname,
       },
