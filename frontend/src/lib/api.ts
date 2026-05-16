@@ -1,16 +1,16 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
-interface ApiSuccess<T> {
+export interface ApiSuccess<T> {
   ok: true;
   data: T;
 }
 
-interface ApiError {
+export interface ApiError {
   ok: false;
   error: { code: string; message: string };
 }
 
-type ApiResponse<T> = ApiSuccess<T> | ApiError;
+export type ApiResponse<T> = ApiSuccess<T> | ApiError;
 
 export async function api<T>(
   path: string,
