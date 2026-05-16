@@ -27,6 +27,13 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - run: npm ci
+
+      - name: Cache MongoDB memory server binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-8.2.6
+
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
