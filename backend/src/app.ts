@@ -8,6 +8,7 @@ import pino from 'pino';
 import healthRouter from './routes/health';
 import authRouter from './routes/auth';
 import { createSubmissionsRouter } from './routes/submissions';
+import pointsRouter from './routes/points';
 import { errorHandler } from './middleware/errorHandler';
 import { env } from './config/env';
 import { createLLMClient } from './services/llm';
@@ -41,6 +42,7 @@ export function createApp(options?: { silent?: boolean; llmClient?: LLMClient })
   app.use('/api', healthRouter);
   app.use('/api/auth', authRouter);
   app.use('/api/submissions', createSubmissionsRouter(llmClient));
+  app.use('/api/points', pointsRouter);
 
   app.use(errorHandler);
 
