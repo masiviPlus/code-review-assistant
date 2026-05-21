@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import pino from 'pino';
 import { Achievement } from '../../models/Achievement';
 import { UserAchievement } from '../../models/UserAchievement';
-import { Submission } from '../../models/Submission';
+import { Submission, completedFilter } from '../../models/Submission';
 import { Issue } from '../../models/Issue';
 import { computeStreak } from '../points';
 import { checkers } from './checkers';
@@ -22,7 +22,7 @@ async function buildContext(
   submission: CheckerContext['submission'],
 ): Promise<CheckerContext> {
   const [totalSubmissions, streak, errorIssueCount] = await Promise.all([
-    Submission.countDocuments({ userId, status: 'complete', deletedAt: null }),
+    Submission.countDocuments(completedFilter(userId)),
     computeStreak(userId),
     Issue.countDocuments({ submissionId: submission._id, severity: 'error' }),
   ]);
@@ -94,7 +94,7 @@ export async function getAchievementsForUser(
   const [achievementDocs, userAchievements, latestSubmission] = await Promise.all([
     Achievement.find().lean(),
     UserAchievement.find({ userId }).lean(),
-    Submission.findOne({ userId, status: 'complete', deletedAt: null })
+    Submission.findOne(completedFilter(userId))
       .sort({ _id: -1 })
       .lean(),
   ]);

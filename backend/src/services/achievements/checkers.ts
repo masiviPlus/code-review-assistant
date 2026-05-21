@@ -1,4 +1,4 @@
-import { Submission } from '../../models/Submission';
+import { Submission, completedFilter } from '../../models/Submission';
 import { Issue } from '../../models/Issue';
 import type { AchievementChecker, CheckerContext, AchievementProgress } from './types';
 
@@ -44,9 +44,7 @@ const styleMaster: AchievementChecker = {
 
 async function countHighStyleSubmissions(ctx: CheckerContext): Promise<number> {
   return Submission.countDocuments({
-    userId: ctx.userId,
-    status: 'complete',
-    deletedAt: null,
+    ...completedFilter(ctx.userId),
     'scoreBreakdown.style': { $gte: STYLE_MASTER_THRESHOLD },
   });
 }
@@ -74,11 +72,7 @@ async function bestErrorCount(ctx: CheckerContext): Promise<number> {
     {
       $match: {
         submissionId: {
-          $in: await Submission.find({
-            userId: ctx.userId,
-            status: 'complete',
-            deletedAt: null,
-          }).distinct('_id'),
+          $in: await Submission.find(completedFilter(ctx.userId)).distinct('_id'),
         },
         severity: 'error',
       },
@@ -143,11 +137,7 @@ const polyglot: AchievementChecker = {
 };
 
 async function distinctLanguageCount(ctx: CheckerContext): Promise<number> {
-  const languages: string[] = await Submission.distinct('language', {
-    userId: ctx.userId,
-    status: 'complete',
-    deletedAt: null,
-  });
+  const languages: string[] = await Submission.distinct('language', completedFilter(ctx.userId));
   return languages.length;
 }
 
@@ -167,9 +157,7 @@ const perfectionist: AchievementChecker = {
   async progress(ctx) {
     // Binary: either you've done it or you haven't
     const exists = await Submission.exists({
-      userId: ctx.userId,
-      status: 'complete',
-      deletedAt: null,
+      ...completedFilter(ctx.userId),
       scoreOverall: PERFECT_SCORE,
       // We can't filter by line count in Mongo easily, so check in memory
       // for the current submission. For progress display, show 0 or 1.
@@ -178,9 +166,7 @@ const perfectionist: AchievementChecker = {
     // Check if any past 100-score submission was > 30 lines
     if (exists) {
       const perfect = await Submission.findOne({
-        userId: ctx.userId,
-        status: 'complete',
-        deletedAt: null,
+        ...completedFilter(ctx.userId),
         scoreOverall: PERFECT_SCORE,
       }).lean();
       if (perfect && perfect.code.split('\n').length > MIN_LINES) {
@@ -218,10 +204,8 @@ const reformed: AchievementChecker = {
  */
 async function hasImprovedEnough(ctx: CheckerContext): Promise<boolean> {
   const worstPrior = await Submission.findOne({
-    userId: ctx.userId,
+    ...completedFilter(ctx.userId),
     _id: { $ne: ctx.submission._id },
-    status: 'complete',
-    deletedAt: null,
   })
     .sort({ scoreOverall: 1 })
     .select('scoreOverall')
@@ -233,22 +217,13 @@ async function hasImprovedEnough(ctx: CheckerContext): Promise<boolean> {
 
 /** Best improvement between any two submissions by this user. */
 async function getBestImprovement(ctx: CheckerContext): Promise<number> {
+  const scoreFilter = { ...completedFilter(ctx.userId), scoreOverall: { $ne: null } };
   const [worst, best] = await Promise.all([
-    Submission.findOne({
-      userId: ctx.userId,
-      status: 'complete',
-      deletedAt: null,
-      scoreOverall: { $ne: null },
-    })
+    Submission.findOne(scoreFilter)
       .sort({ scoreOverall: 1 })
       .select('scoreOverall')
       .lean(),
-    Submission.findOne({
-      userId: ctx.userId,
-      status: 'complete',
-      deletedAt: null,
-      scoreOverall: { $ne: null },
-    })
+    Submission.findOne(scoreFilter)
       .sort({ scoreOverall: -1 })
       .select('scoreOverall')
       .lean(),

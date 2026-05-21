@@ -6,25 +6,8 @@ import { Trophy } from 'lucide-react';
 import { apiWithAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
-interface AchievementProgress {
-  current: number;
-  target: number;
-}
-
-interface Achievement {
-  code: string;
-  name: string;
-  description: string;
-  criteria: string;
-  unlocked: boolean;
-  unlockedAt: string | null;
-  progress: AchievementProgress;
-}
+import type { AchievementStatus } from '@/lib/types';
+import { ProgressBar } from '@/components/progress-bar';
 
 /* ------------------------------------------------------------------ */
 /*  Badge icon mapping                                                 */
@@ -46,13 +29,13 @@ const BADGE_ICONS: Record<string, string> = {
 /* ------------------------------------------------------------------ */
 
 export default function AchievementsPage() {
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [achievements, setAchievements] = useState<AchievementStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const res = await apiWithAuth<Achievement[]>('/api/achievements');
+      const res = await apiWithAuth<AchievementStatus[]>('/api/achievements');
       if (res.ok) {
         setAchievements(res.data);
       } else {
@@ -113,7 +96,7 @@ export default function AchievementsPage() {
 /*  Achievement card                                                   */
 /* ------------------------------------------------------------------ */
 
-function AchievementCard({ achievement }: { achievement: Achievement }) {
+function AchievementCard({ achievement }: { achievement: AchievementStatus }) {
   const { code, name, description, criteria, unlocked, unlockedAt, progress } = achievement;
   const pct = progress.target > 0 ? Math.round((progress.current / progress.target) * 100) : 0;
   const letter = BADGE_ICONS[code] ?? '?';
@@ -180,12 +163,11 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
                   {pct}%
                 </span>
               </div>
-              <div className="h-1 w-full rounded-full bg-muted-foreground/10">
-                <div
-                  className="h-full rounded-full bg-muted-foreground/30 transition-all"
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
+              <ProgressBar
+                value={pct}
+                trackClass="bg-muted-foreground/10"
+                fillClass="bg-muted-foreground/30"
+              />
             </div>
           )}
         </div>

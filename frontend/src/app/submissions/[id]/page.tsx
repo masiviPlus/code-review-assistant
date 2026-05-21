@@ -5,125 +5,13 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { type editor } from 'monaco-editor';
-import {
-  AlertCircle,
-  AlertTriangle,
-  ChevronDown,
-  ChevronRight,
-  Info,
-  Trophy,
-} from 'lucide-react';
+import { AlertCircle, Trophy } from 'lucide-react';
 
 import { apiWithAuth } from '@/lib/auth';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
-interface ScoreBreakdown {
-  style: number;
-  bestPractices: number;
-  logic: number;
-  readability: number;
-}
-
-interface Issue {
-  _id: string;
-  severity: 'error' | 'warning' | 'info';
-  category: string;
-  lineNumber: number | null;
-  message: string;
-  suggestion: string;
-}
-
-interface Submission {
-  _id: string;
-  code: string;
-  language: string;
-  status: string;
-  scoreOverall?: number;
-  scoreBreakdown?: ScoreBreakdown;
-  summary?: string;
-  createdAt: string;
-}
-
-interface SubmissionData {
-  submission: Submission;
-  issues: Issue[];
-}
-
-interface AchievementStatus {
-  code: string;
-  name: string;
-  description: string;
-  unlocked: boolean;
-  unlockedAt: string | null;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Severity helpers                                                   */
-/* ------------------------------------------------------------------ */
-
-const SEVERITY_ORDER: Record<string, number> = { error: 0, warning: 1, info: 2 };
-
-const SEVERITY_CONFIG = {
-  error: {
-    Icon: AlertCircle,
-    label: 'Errors',
-    text: 'text-red-600',
-    bg: 'bg-red-50',
-    border: 'border-red-200',
-    badge: 'bg-red-100 text-red-700',
-    decorationClass: 'line-highlight-error',
-  },
-  warning: {
-    Icon: AlertTriangle,
-    label: 'Warnings',
-    text: 'text-amber-600',
-    bg: 'bg-amber-50',
-    border: 'border-amber-200',
-    badge: 'bg-amber-100 text-amber-700',
-    decorationClass: 'line-highlight-warning',
-  },
-  info: {
-    Icon: Info,
-    label: 'Info',
-    text: 'text-blue-600',
-    bg: 'bg-blue-50',
-    border: 'border-blue-200',
-    badge: 'bg-blue-100 text-blue-700',
-    decorationClass: 'line-highlight-info',
-  },
-} as const;
-
-/* ------------------------------------------------------------------ */
-/*  Score breakdown display labels                                     */
-/* ------------------------------------------------------------------ */
-
-const BREAKDOWN_LABELS: { key: keyof ScoreBreakdown; label: string }[] = [
-  { key: 'style', label: 'Style' },
-  { key: 'bestPractices', label: 'Best Practices' },
-  { key: 'logic', label: 'Logic' },
-  { key: 'readability', label: 'Readability' },
-];
-
-/* ------------------------------------------------------------------ */
-/*  Score colour                                                       */
-/* ------------------------------------------------------------------ */
-
-function scoreColor(score: number): string {
-  if (score >= 80) return 'text-green-600';
-  if (score >= 50) return 'text-amber-600';
-  return 'text-red-600';
-}
-
-function barColor(score: number): string {
-  if (score >= 80) return 'bg-green-500';
-  if (score >= 50) return 'bg-amber-500';
-  return 'bg-red-500';
-}
+import type { Issue, SubmissionData, AchievementStatus } from '@/lib/types';
+import { SEVERITY_CONFIG } from '@/lib/review-utils';
+import { ReviewPanel } from '@/components/review-panel';
 
 /* ------------------------------------------------------------------ */
 /*  Page                                                               */
@@ -137,7 +25,6 @@ export default function SubmissionPage() {
   const [data, setData] = useState<SubmissionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
   const [newAchievements, setNewAchievements] = useState<AchievementStatus[]>([]);
 
   /* ---- Fetch submission + achievements ---- */
@@ -226,22 +113,6 @@ export default function SubmissionPage() {
     ]);
     setTimeout(() => flash.clear(), 1500);
   }, []);
-
-  /* ---- Group issues by severity ---- */
-  const groupedIssues = data
-    ? Object.entries(
-        data.issues.reduce(
-          (acc, issue) => {
-            (acc[issue.severity] ??= []).push(issue);
-            return acc;
-          },
-          {} as Record<string, Issue[]>,
-        ),
-      ).sort(
-        ([a], [b]) =>
-          (SEVERITY_ORDER[a] ?? 9) - (SEVERITY_ORDER[b] ?? 9),
-      )
-    : [];
 
   /* ---- Loading / error states ---- */
   if (loading) {
@@ -349,152 +220,12 @@ export default function SubmissionPage() {
           />
         </div>
 
-        {/* ---- Right: review panel (on mobile, this appears ABOVE the code) ---- */}
-        <div className="w-full overflow-y-auto lg:w-[420px] lg:min-w-[360px]">
-          {/* Score */}
-          <div className="border-b border-border p-4">
-            <div className="flex items-baseline gap-3">
-              <span
-                className={cn(
-                  'text-4xl font-bold tabular-nums tracking-tight',
-                  scoreColor(submission.scoreOverall ?? 0),
-                )}
-              >
-                {submission.scoreOverall ?? '—'}
-              </span>
-              <span className="text-sm text-muted-foreground">/ 100</span>
-            </div>
-            {submission.summary && (
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {submission.summary}
-              </p>
-            )}
-          </div>
-
-          {/* Breakdown bars */}
-          {submission.scoreBreakdown && (
-            <div className="border-b border-border p-4">
-              <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Breakdown
-              </h3>
-              <div className="space-y-2.5">
-                {BREAKDOWN_LABELS.map(({ key, label }) => {
-                  const value = submission.scoreBreakdown![key];
-                  return (
-                    <div key={key}>
-                      <div className="mb-1 flex items-center justify-between text-xs">
-                        <span className="font-medium">{label}</span>
-                        <span className="tabular-nums text-muted-foreground">
-                          {value}
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full rounded-full bg-secondary">
-                        <div
-                          className={cn('h-full rounded-full transition-all', barColor(value))}
-                          style={{ width: `${value}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Issues */}
-          <div className="p-4">
-            <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Issues
-              <span className="ml-1.5 text-muted-foreground">
-                ({issues.length})
-              </span>
-            </h3>
-
-            {issues.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No issues found. Clean code!
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {groupedIssues.map(([severity, items]) => {
-                  const config =
-                    SEVERITY_CONFIG[severity as keyof typeof SEVERITY_CONFIG];
-                  const { Icon } = config;
-
-                  return (
-                    <div key={severity}>
-                      {/* Group header */}
-                      <div className="mb-2 flex items-center gap-1.5">
-                        <Icon className={cn('h-3.5 w-3.5', config.text)} />
-                        <span className={cn('text-xs font-medium', config.text)}>
-                          {config.label}
-                        </span>
-                        <span
-                          className={cn(
-                            'ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
-                            config.badge,
-                          )}
-                        >
-                          {items.length}
-                        </span>
-                      </div>
-
-                      {/* Issue list */}
-                      <div className="space-y-1">
-                        {items.map((issue) => {
-                          const isExpanded = expandedIssue === issue._id;
-                          return (
-                            <div
-                              key={issue._id}
-                              className={cn(
-                                'rounded-md border text-sm transition-colors',
-                                config.border,
-                                isExpanded ? config.bg : 'bg-background',
-                              )}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setExpandedIssue(
-                                    isExpanded ? null : issue._id,
-                                  );
-                                  if (issue.lineNumber !== null) {
-                                    scrollToLine(issue.lineNumber);
-                                  }
-                                }}
-                                className="flex w-full items-start gap-2 px-3 py-2 text-left"
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                ) : (
-                                  <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                )}
-                                <span className="flex-1">{issue.message}</span>
-                                {issue.lineNumber !== null && (
-                                  <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                                    L{issue.lineNumber}
-                                  </span>
-                                )}
-                              </button>
-
-                              {isExpanded && issue.suggestion && (
-                                <div className="border-t px-3 py-2 text-xs leading-relaxed text-muted-foreground"
-                                  style={{ borderColor: 'inherit' }}
-                                >
-                                  {issue.suggestion}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
+        {/* ---- Right: review panel ---- */}
+        <ReviewPanel
+          submission={submission}
+          issues={issues}
+          onIssueFocus={scrollToLine}
+        />
       </div>
     </div>
   );

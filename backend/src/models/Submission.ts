@@ -1,4 +1,4 @@
-import { Schema, model, InferSchemaType } from 'mongoose';
+import { Schema, model, InferSchemaType, Types } from 'mongoose';
 
 const STATUSES = ['analysing', 'complete', 'failed'] as const;
 
@@ -29,3 +29,8 @@ const submissionSchema = new Schema(
 
 export type ISubmission = InferSchemaType<typeof submissionSchema>;
 export const Submission = model('Submission', submissionSchema);
+
+/** Base filter for completed, non-deleted submissions owned by a user. */
+export function completedFilter(userId: Types.ObjectId) {
+  return { userId, status: 'complete' as const, deletedAt: null };
+}
