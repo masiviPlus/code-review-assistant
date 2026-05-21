@@ -35,8 +35,9 @@ export function Nav() {
   const { user, loading } = useUser();
   const logout = useLogout();
 
-  // Hide nav on auth pages
+  // Hide nav on auth pages and on landing page (it has its own nav)
   if (AUTH_PATHS.some((p) => pathname.startsWith(p))) return null;
+  if (pathname === '/') return null;
 
   return (
     <nav className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
