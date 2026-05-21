@@ -11,6 +11,7 @@ import { env } from '../config/env';
 import type { LLMClient } from '../services/llm/types';
 import { applyScoring } from '../services/scoring';
 import { awardSubmissionPoints } from '../services/points';
+import { evaluateAchievements } from '../services/achievements';
 
 const logger = pino({ name: 'submissions' });
 
@@ -121,6 +122,15 @@ export function createSubmissionsRouter(llmClient: LLMClient) {
       // Step 5: award points (fire-and-forget — don't block the response)
       awardSubmissionPoints(req.user!.userId, submission._id, result.scoreOverall)
         .catch((err) => logger.error({ err, submissionId: submission._id }, 'Failed to award points'));
+
+      // Step 6: evaluate achievements (fire-and-forget)
+      evaluateAchievements(req.user!.userId, {
+        _id: submission._id,
+        code: body.code,
+        language: body.language,
+        scoreOverall: result.scoreOverall,
+        scoreBreakdown: result.scoreBreakdown,
+      }).catch((err) => logger.error({ err, submissionId: submission._id }, 'Failed to evaluate achievements'));
 
       res.status(201).json({
         ok: true,
