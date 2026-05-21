@@ -185,6 +185,54 @@ export function createSubmissionsRouter(llmClient: LLMClient) {
     });
   });
 
+  // ── GET /submissions/stats ─────────────────────────────────
+  // Aggregated stats for the dashboard: category averages and
+  // top issue categories across the user's submission history.
+
+  router.get('/stats', async (req, res) => {
+    const userId = req.user!.userId;
+
+    // Category averages across all completed submissions
+    const [avgAgg] = await Submission.aggregate([
+      { $match: { userId, status: 'complete', deletedAt: null, scoreBreakdown: { $ne: null } } },
+      {
+        $group: {
+          _id: null,
+          style: { $avg: '$scoreBreakdown.style' },
+          bestPractices: { $avg: '$scoreBreakdown.bestPractices' },
+          logic: { $avg: '$scoreBreakdown.logic' },
+          readability: { $avg: '$scoreBreakdown.readability' },
+        },
+      },
+    ]);
+
+    const categoryAverages = avgAgg
+      ? {
+          style: Math.round(avgAgg.style ?? 0),
+          bestPractices: Math.round(avgAgg.bestPractices ?? 0),
+          logic: Math.round(avgAgg.logic ?? 0),
+          readability: Math.round(avgAgg.readability ?? 0),
+        }
+      : null;
+
+    // Top 5 issue categories (category + severity) across all user submissions
+    const submissionIds = await Submission.find({
+      userId,
+      status: 'complete',
+      deletedAt: null,
+    }).distinct('_id');
+
+    const topIssues = await Issue.aggregate([
+      { $match: { submissionId: { $in: submissionIds } } },
+      { $group: { _id: { category: '$category', severity: '$severity' }, count: { $sum: 1 } } },
+      { $sort: { count: -1 as const } },
+      { $limit: 5 },
+      { $project: { _id: 0, category: '$_id.category', severity: '$_id.severity', count: 1 } },
+    ]);
+
+    res.json({ ok: true, data: { categoryAverages, topIssues } });
+  });
+
   // ── GET /submissions/:id ───────────────────────────────────
 
   router.get('/:id', async (req, res) => {
