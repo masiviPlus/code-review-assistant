@@ -4,8 +4,8 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
-  useState,
+  useMemo,
+  useSyncExternalStore,
 } from 'react';
 
 type Theme = 'light' | 'dark';
@@ -17,30 +17,43 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function getInitialTheme(): Theme {
-  if (typeof window === 'undefined') return 'light';
-  const stored = localStorage.getItem('theme');
-  if (stored === 'dark' || stored === 'light') return stored;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+// Read the data-theme attribute set by the inline FOUC script.
+// This is always in sync because the script runs before React hydrates.
+function getThemeSnapshot(): Theme {
+  const attr = document.documentElement.getAttribute('data-theme');
+  return attr === 'dark' ? 'dark' : 'light';
+}
+
+function getServerSnapshot(): Theme {
+  return 'light';
+}
+
+// Listeners for theme changes triggered by toggle()
+let listeners: (() => void)[] = [];
+function subscribe(cb: () => void) {
+  listeners.push(cb);
+  return () => {
+    listeners = listeners.filter((l) => l !== cb);
+  };
+}
+function emitChange() {
+  for (const cb of listeners) cb();
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+  const theme = useSyncExternalStore(subscribe, getThemeSnapshot, getServerSnapshot);
 
   const toggle = useCallback(() => {
-    setTheme((prev) => {
-      const next = prev === 'light' ? 'dark' : 'light';
-      localStorage.setItem('theme', next);
-      return next;
-    });
+    const next: Theme = getThemeSnapshot() === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    emitChange();
   }, []);
 
+  const value = useMemo(() => ({ theme, toggle }), [theme, toggle]);
+
   return (
-    <ThemeContext.Provider value={{ theme, toggle }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

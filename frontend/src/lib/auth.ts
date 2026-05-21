@@ -114,10 +114,10 @@ export async function apiWithAuth<T>(
       return authFetch<T>(path, options);
     }
 
-    // Refresh failed — session is dead. Clear cookie and redirect.
+    // Refresh failed — session is dead. Clear cookie so middleware
+    // will gate protected routes on next navigation.
     if (typeof document !== 'undefined') {
       document.cookie = 'logged_in=; path=/; max-age=0';
-      window.location.href = '/login';
     }
   }
 

@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import type { ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { apiWithAuth, setAccessToken } from '@/lib/auth';
 
@@ -189,5 +190,10 @@ export function useRegister() {
 
 export function useLogout() {
   const { logout } = useAuth();
-  return logout;
+  const router = useRouter();
+
+  return useCallback(async () => {
+    await logout();
+    router.replace('/');
+  }, [logout, router]);
 }
