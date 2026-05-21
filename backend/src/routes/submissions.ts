@@ -9,13 +9,9 @@ import { requireAuth } from '../middleware/requireAuth';
 import { AppError } from '../errors/AppError';
 import { env } from '../config/env';
 import type { LLMClient } from '../services/llm/types';
-import { applyScoring } from '../services/scoring';
-import { awardSubmissionPoints } from '../services/points';
-import { evaluateAchievements } from '../services/achievements';
+import { analyseAndScore, getStats } from '../services/submissions';
 
 const logger = pino({ name: 'submissions' });
-
-const LLM_TIMEOUT_MS = 30_000;
 
 // ── Rate limiting (per-user, keyed by userId from JWT) ───────
 
@@ -52,97 +48,30 @@ function assertOwnership(docUserId: Types.ObjectId, req: Request): void {
   }
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('LLM call timed out')), ms);
-    promise.then(
-      (val) => { clearTimeout(timer); resolve(val); },
-      (err) => { clearTimeout(timer); reject(err); },
-    );
-  });
-}
-
 // ── Router factory ───────────────────────────────────────────
-// Accepts an LLMClient so we can inject FakeLLMClient in tests
-// and ClaudeClient in production.
 
 export function createSubmissionsRouter(llmClient: LLMClient) {
   const router = Router();
 
-  // All routes require authentication
   router.use(requireAuth);
 
   // ── POST /submissions ──────────────────────────────────────
-  //
-  // Queue architecture note:
-  // Currently the LLM call runs inline (in-memory promise). To scale,
-  // replace the inline call with a job enqueue (e.g. BullMQ + Redis):
-  //   1. Save submission with status 'analysing', return 202 immediately.
-  //   2. A worker picks up the job, calls llmClient.analyseCode(),
-  //      updates the submission in Mongo, and emits a completion event.
-  //   3. Frontend polls GET /submissions/:id or listens via WebSocket.
-  // The LLMClient interface stays the same — only the orchestration changes.
 
   router.post('/', submissionLimiter, async (req, res) => {
     const body = createSchema.parse(req.body);
 
-    // Step 1: persist submission immediately so user code is never lost
-    const submission = await Submission.create({
-      userId: req.user!.userId,
-      code: body.code,
-      language: body.language,
-      status: 'analysing',
-    });
-
-    // Step 2: call LLM with timeout
     try {
-      const rawResult = await withTimeout(
-        llmClient.analyseCode(body.code, body.language),
-        LLM_TIMEOUT_MS,
+      const result = await analyseAndScore(
+        req.user!.userId,
+        body.code,
+        body.language,
+        llmClient,
       );
 
-      const codeLineCount = body.code.split('\n').length;
-      const result = applyScoring(rawResult, codeLineCount);
-
-      // Step 3: save issues
-      const issues = await Issue.insertMany(
-        result.issues.map((issue) => ({
-          ...issue,
-          submissionId: submission._id,
-        })),
-      );
-
-      // Step 4: update submission with scores
-      submission.status = 'complete';
-      submission.scoreOverall = result.scoreOverall;
-      submission.scoreBreakdown = result.scoreBreakdown;
-      submission.summary = result.summary;
-      await submission.save();
-
-      // Step 5: award points (fire-and-forget — don't block the response)
-      awardSubmissionPoints(req.user!.userId, submission._id, result.scoreOverall)
-        .catch((err) => logger.error({ err, submissionId: submission._id }, 'Failed to award points'));
-
-      // Step 6: evaluate achievements (fire-and-forget)
-      evaluateAchievements(req.user!.userId, {
-        _id: submission._id,
-        code: body.code,
-        language: body.language,
-        scoreOverall: result.scoreOverall,
-        scoreBreakdown: result.scoreBreakdown,
-      }).catch((err) => logger.error({ err, submissionId: submission._id }, 'Failed to evaluate achievements'));
-
-      res.status(201).json({
-        ok: true,
-        data: { submission, issues },
-      });
+      res.status(201).json({ ok: true, data: result });
     } catch (err) {
-      // Mark as failed but preserve the user's code
-      submission.status = 'failed';
-      await submission.save();
-
       const message = err instanceof Error ? err.message : 'Analysis failed';
-      logger.error({ err, submissionId: submission._id }, 'LLM analysis failed');
+      logger.error({ err }, 'LLM analysis failed');
 
       throw new AppError(
         `Code analysis failed: ${message}`,
@@ -186,51 +115,10 @@ export function createSubmissionsRouter(llmClient: LLMClient) {
   });
 
   // ── GET /submissions/stats ─────────────────────────────────
-  // Aggregated stats for the dashboard: category averages and
-  // top issue categories across the user's submission history.
 
   router.get('/stats', async (req, res) => {
-    const userId = req.user!.userId;
-
-    // Category averages across all completed submissions
-    const [avgAgg] = await Submission.aggregate([
-      { $match: { userId, status: 'complete', deletedAt: null, scoreBreakdown: { $ne: null } } },
-      {
-        $group: {
-          _id: null,
-          style: { $avg: '$scoreBreakdown.style' },
-          bestPractices: { $avg: '$scoreBreakdown.bestPractices' },
-          logic: { $avg: '$scoreBreakdown.logic' },
-          readability: { $avg: '$scoreBreakdown.readability' },
-        },
-      },
-    ]);
-
-    const categoryAverages = avgAgg
-      ? {
-          style: Math.round(avgAgg.style ?? 0),
-          bestPractices: Math.round(avgAgg.bestPractices ?? 0),
-          logic: Math.round(avgAgg.logic ?? 0),
-          readability: Math.round(avgAgg.readability ?? 0),
-        }
-      : null;
-
-    // Top 5 issue categories (category + severity) across all user submissions
-    const submissionIds = await Submission.find({
-      userId,
-      status: 'complete',
-      deletedAt: null,
-    }).distinct('_id');
-
-    const topIssues = await Issue.aggregate([
-      { $match: { submissionId: { $in: submissionIds } } },
-      { $group: { _id: { category: '$category', severity: '$severity' }, count: { $sum: 1 } } },
-      { $sort: { count: -1 as const } },
-      { $limit: 5 },
-      { $project: { _id: 0, category: '$_id.category', severity: '$_id.severity', count: 1 } },
-    ]);
-
-    res.json({ ok: true, data: { categoryAverages, topIssues } });
+    const data = await getStats(req.user!.userId);
+    res.json({ ok: true, data });
   });
 
   // ── GET /submissions/:id ───────────────────────────────────

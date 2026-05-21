@@ -7,6 +7,7 @@ import { useUser, useLogout } from '@/contexts/auth-context';
 import { apiWithAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ProgressBar } from '@/components/progress-bar';
 
 const AUTH_PATHS = ['/login', '/register'];
 
@@ -122,12 +123,7 @@ function LevelIndicator() {
         <span className="text-[11px] font-semibold tabular-nums text-foreground">
           Lv {currentLevel}
         </span>
-        <div className="h-1 w-12 rounded-full bg-secondary">
-          <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
+        <ProgressBar value={progressPct} className="w-12" />
       </div>
 
       {/* Hover tooltip */}
@@ -157,12 +153,7 @@ function LevelIndicator() {
                 <span>{currentThreshold}</span>
                 <span>{nextThreshold}</span>
               </div>
-              <div className="h-1 w-full rounded-full bg-secondary">
-                <div
-                  className="h-full rounded-full bg-primary"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
+              <ProgressBar value={progressPct} />
             </div>
           )}
         </div>

@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { PointsLedger } from '../models/PointsLedger';
-import { Submission } from '../models/Submission';
+import { Submission, completedFilter } from '../models/Submission';
 
 // ── Level thresholds ────────────────────────────────────────
 
@@ -49,11 +49,7 @@ export async function computeStreak(userId: Types.ObjectId): Promise<number> {
   // Get distinct submission dates (UTC day) in descending order
   const pipeline = [
     {
-      $match: {
-        userId,
-        status: 'complete',
-        deletedAt: null,
-      },
+      $match: completedFilter(userId),
     },
     {
       $group: {
