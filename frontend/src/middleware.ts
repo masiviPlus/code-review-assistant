@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * Everything under /dashboard (added later) will be gated.
  * Auth pages (/login, /register) are always accessible.
  */
-const PROTECTED_PREFIXES = ['/dashboard', '/submit', '/submissions'];
+const PROTECTED_PREFIXES = ['/dashboard', '/submit', '/submissions', '/achievements'];
 
 const AUTH_PAGES = ['/login', '/register'];
 
@@ -33,5 +33,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/submit', '/submissions/:path*', '/login', '/register'],
+  matcher: ['/dashboard/:path*', '/submit', '/submissions/:path*', '/achievements', '/login', '/register'],
 };
