@@ -8,9 +8,9 @@ const ISSUE_CATEGORY_LABELS: Record<string, string> = {
 };
 
 const SEVERITY_DOT: Record<string, string> = {
-  error: 'bg-red-500',
-  warning: 'bg-amber-500',
-  info: 'bg-blue-500',
+  error: 'bg-red-500 dark:bg-red-400',
+  warning: 'bg-amber-500 dark:bg-amber-400',
+  info: 'bg-blue-500 dark:bg-blue-400',
 };
 
 export function TopIssuesPanel({

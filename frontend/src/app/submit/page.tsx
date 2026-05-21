@@ -7,6 +7,7 @@ import { type editor } from 'monaco-editor';
 
 import { apiWithAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
+import { useMonacoTheme } from '@/lib/use-monaco-theme';
 
 /* ------------------------------------------------------------------ */
 /*  Sample snippets for quick demos                                    */
@@ -107,6 +108,7 @@ export default function SubmitPage() {
   const router = useRouter();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
+  const monacoTheme = useMonacoTheme();
   const [language] = useState('javascript');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -217,7 +219,7 @@ export default function SubmitPage() {
         <Editor
           defaultLanguage="javascript"
           defaultValue="// Paste your JavaScript code here…"
-          theme="vs-light"
+          theme={monacoTheme}
           onMount={handleEditorMount}
           options={{
             fontSize: 13,

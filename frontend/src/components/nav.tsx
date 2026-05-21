@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Sun, Moon } from 'lucide-react';
 import { useUser, useLogout } from '@/contexts/auth-context';
+import { useTheme } from '@/contexts/theme-context';
 import { apiWithAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -65,6 +67,7 @@ export function Nav() {
           {user ? (
             <>
               <LevelIndicator />
+              <ThemeToggle />
               <span className="hidden text-xs text-muted-foreground sm:block">
                 {user.displayName}
               </span>
@@ -74,6 +77,7 @@ export function Nav() {
             </>
           ) : (
             <>
+              <ThemeToggle />
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/login">Sign in</Link>
               </Button>
@@ -85,6 +89,27 @@ export function Nav() {
         </div>
       )}
     </nav>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Theme toggle                                                       */
+/* ------------------------------------------------------------------ */
+
+function ThemeToggle() {
+  const { theme, toggle } = useTheme();
+  const Icon = theme === 'light' ? Sun : Moon;
+  const label = theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={label}
+      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </button>
   );
 }
 

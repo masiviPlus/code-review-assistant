@@ -51,8 +51,12 @@ export function CategoryBreakdown({ averages }: { averages: ScoreBreakdown }) {
               fontSize: 12,
               borderRadius: 6,
               border: '1px solid hsl(var(--border))',
+              background: 'hsl(var(--card))',
+              color: 'hsl(var(--foreground))',
               boxShadow: 'none',
             }}
+            labelStyle={{ color: 'hsl(var(--foreground))' }}
+            itemStyle={{ color: 'hsl(var(--foreground))' }}
             formatter={(value) => [`${value}`, 'Avg']}
           />
           <Bar dataKey="score" radius={[0, 3, 3, 0]} barSize={14}>

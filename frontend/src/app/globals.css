@@ -48,6 +48,36 @@
     --space-2xl: 3rem;
   }
 
+  [data-theme="dark"] {
+    --background: 0 0% 7%;        /* #121212 */
+    --foreground: 0 0% 93%;       /* #ededed */
+
+    --card: 0 0% 10%;             /* #1a1a1a */
+    --card-foreground: 0 0% 93%;
+
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 93%;
+
+    --primary: 217 91% 60%;       /* #3b82f6 — slightly lighter for dark bg */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 15%;        /* #262626 */
+    --secondary-foreground: 0 0% 93%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 55%;
+
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 93%;
+
+    --destructive: 0 62% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 217 91% 60%;
+  }
+
   * {
     @apply border-border;
   }
@@ -67,6 +97,16 @@
 }
 .line-highlight-info {
   background: rgba(59, 130, 246, 0.08);
+}
+
+[data-theme="dark"] .line-highlight-error {
+  background: rgba(239, 68, 68, 0.18);
+}
+[data-theme="dark"] .line-highlight-warning {
+  background: rgba(245, 158, 11, 0.18);
+}
+[data-theme="dark"] .line-highlight-info {
+  background: rgba(59, 130, 246, 0.15);
 }
 
 .line-highlight-flash {
