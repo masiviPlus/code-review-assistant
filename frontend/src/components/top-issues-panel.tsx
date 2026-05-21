@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
+import type { TopIssue } from '@/lib/types';
 
-const ISSUE_CATEGORY_LABELS: Record<string, string> = {
+const CATEGORY_LABELS: Record<string, string> = {
   style: 'Style',
   best_practice: 'Best practice',
   logic: 'Logic',
@@ -15,36 +16,52 @@ const SEVERITY_DOT: Record<string, string> = {
 
 export function TopIssuesPanel({
   issues,
+  totalSubmissions,
 }: {
-  issues: { category: string; severity: string; count: number }[];
+  issues: TopIssue[];
+  totalSubmissions: number;
 }) {
-  const maxCount = Math.max(...issues.map((i) => i.count), 1);
+  if (totalSubmissions < 3) {
+    return (
+      <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+        Submit a few more reviews to see patterns here.
+      </div>
+    );
+  }
+
+  if (issues.length === 0) {
+    return (
+      <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+        No recurring issues found.
+      </div>
+    );
+  }
 
   return (
     <div className="divide-y divide-border">
       {issues.map((issue, i) => (
-        <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+        <div key={i} className="flex items-start gap-2.5 px-4 py-2.5">
           <span
             className={cn(
-              'h-2 w-2 shrink-0 rounded-full',
+              'mt-1.5 h-2 w-2 shrink-0 rounded-full',
               SEVERITY_DOT[issue.severity] ?? 'bg-muted-foreground',
             )}
           />
           <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-medium">
-                {ISSUE_CATEGORY_LABELS[issue.category] ?? issue.category}
+            <div className="flex items-start justify-between gap-2">
+              <span
+                className="text-xs font-medium leading-snug line-clamp-2"
+                title={issue.message}
+              >
+                {issue.message}
               </span>
-              <span className="text-[11px] tabular-nums text-muted-foreground">
-                {issue.count}
+              <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                {issue.count}&times;
               </span>
             </div>
-            <div className="mt-1 h-1 w-full rounded-full bg-secondary">
-              <div
-                className="h-full rounded-full bg-muted-foreground/30 transition-all"
-                style={{ width: `${(issue.count / maxCount) * 100}%` }}
-              />
-            </div>
+            <span className="mt-0.5 inline-block text-[10px] text-muted-foreground">
+              {CATEGORY_LABELS[issue.category] ?? issue.category}
+            </span>
           </div>
         </div>
       ))}
