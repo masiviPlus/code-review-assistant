@@ -190,17 +190,21 @@ export default function DashboardPage() {
                     fontSize: 12,
                     borderRadius: 6,
                     border: '1px solid hsl(var(--border))',
+                    background: 'hsl(var(--card))',
+                    color: 'hsl(var(--foreground))',
                     boxShadow: 'none',
                   }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  itemStyle={{ color: 'hsl(var(--foreground))' }}
                   formatter={(value) => [`${value}`, 'Score']}
                   labelFormatter={(i) => chartData[Number(i)]?.label ?? ''}
                 />
                 <Line
                   type="monotone"
                   dataKey="score"
-                  stroke="hsl(221, 83%, 53%)"
+                  stroke="hsl(var(--primary))"
                   strokeWidth={2}
-                  dot={{ r: 3, fill: 'hsl(221, 83%, 53%)' }}
+                  dot={{ r: 3, fill: 'hsl(var(--primary))' }}
                   activeDot={{ r: 4 }}
                 />
               </LineChart>

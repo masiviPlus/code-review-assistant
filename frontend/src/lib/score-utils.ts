@@ -4,16 +4,16 @@
 
 /** Tailwind text colour class based on score threshold. */
 export function scoreColor(score: number): string {
-  if (score >= 80) return 'text-green-600';
-  if (score >= 50) return 'text-amber-600';
-  return 'text-red-600';
+  if (score >= 80) return 'text-green-600 dark:text-green-400';
+  if (score >= 50) return 'text-amber-600 dark:text-amber-400';
+  return 'text-red-600 dark:text-red-400';
 }
 
 /** Tailwind background colour class for progress bars. */
 export function barColor(score: number): string {
-  if (score >= 80) return 'bg-green-500';
-  if (score >= 50) return 'bg-amber-500';
-  return 'bg-red-500';
+  if (score >= 80) return 'bg-green-500 dark:bg-green-400';
+  if (score >= 50) return 'bg-amber-500 dark:bg-amber-400';
+  return 'bg-red-500 dark:bg-red-400';
 }
 
 /** Raw HSL fill for Recharts bars/cells. */

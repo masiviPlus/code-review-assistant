@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import type { Issue, SubmissionData, AchievementStatus } from '@/lib/types';
 import { SEVERITY_CONFIG } from '@/lib/review-utils';
 import { ReviewPanel } from '@/components/review-panel';
+import { useMonacoTheme } from '@/lib/use-monaco-theme';
 
 /* ------------------------------------------------------------------ */
 /*  Page                                                               */
@@ -19,6 +20,7 @@ import { ReviewPanel } from '@/components/review-panel';
 
 export default function SubmissionPage() {
   const { id } = useParams<{ id: string }>();
+  const monacoTheme = useMonacoTheme();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const decorationsRef = useRef<editor.IEditorDecorationsCollection | null>(null);
 
@@ -193,7 +195,7 @@ export default function SubmissionPage() {
           <Editor
             defaultLanguage={submission.language}
             value={submission.code}
-            theme="vs-light"
+            theme={monacoTheme}
             onMount={handleEditorMount}
             options={{
               readOnly: true,
