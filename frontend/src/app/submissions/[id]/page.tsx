@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
   Info,
+  Trophy,
 } from 'lucide-react';
 
 import { apiWithAuth } from '@/lib/auth';
@@ -51,6 +52,14 @@ interface Submission {
 interface SubmissionData {
   submission: Submission;
   issues: Issue[];
+}
+
+interface AchievementStatus {
+  code: string;
+  name: string;
+  description: string;
+  unlocked: boolean;
+  unlockedAt: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -129,8 +138,9 @@ export default function SubmissionPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
+  const [newAchievements, setNewAchievements] = useState<AchievementStatus[]>([]);
 
-  /* ---- Fetch submission ---- */
+  /* ---- Fetch submission + achievements ---- */
   useEffect(() => {
     (async () => {
       const res = await apiWithAuth<SubmissionData>(
@@ -138,6 +148,18 @@ export default function SubmissionPage() {
       );
       if (res.ok) {
         setData(res.data);
+
+        // Check for achievements unlocked around this submission's time
+        const achRes = await apiWithAuth<AchievementStatus[]>('/api/achievements');
+        if (achRes.ok) {
+          const subTime = new Date(res.data.submission.createdAt).getTime();
+          const recent = achRes.data.filter((a) => {
+            if (!a.unlocked || !a.unlockedAt) return false;
+            const diff = Math.abs(new Date(a.unlockedAt).getTime() - subTime);
+            return diff < 60_000; // unlocked within 60s of submission
+          });
+          setNewAchievements(recent);
+        }
       } else {
         setError(res.error.message);
       }
@@ -269,6 +291,23 @@ export default function SubmissionPage() {
 
   return (
     <div className="flex h-[calc(100vh-2.75rem)] flex-col">
+      {/* ---- Achievement unlock banner ---- */}
+      {newAchievements.length > 0 && (
+        <div className="flex items-center gap-2 border-b border-primary/20 bg-primary/5 px-4 py-2">
+          <Trophy className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <p className="text-xs text-foreground">
+            <span className="font-medium">You unlocked: </span>
+            {newAchievements.map((a, i) => (
+              <span key={a.code}>
+                {i > 0 && ', '}
+                <span className="font-medium">{a.name}</span>
+                <span className="text-muted-foreground"> &mdash; {a.description}</span>
+              </span>
+            ))}
+          </p>
+        </div>
+      )}
+
       {/* ---- Subheader ---- */}
       <div className="flex items-center gap-3 border-b border-border px-4 py-1.5">
         <span className="text-xs text-muted-foreground">
