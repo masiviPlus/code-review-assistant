@@ -49,11 +49,15 @@ export interface AchievementStatus {
   progress: AchievementProgress;
 }
 
+export interface TopIssue {
+  message: string;
+  category: string;
+  severity: string;
+  count: number;
+  lastSeenAt: string;
+}
+
 export interface SubmissionStats {
   categoryAverages: ScoreBreakdown | null;
-  topIssues: {
-    category: string;
-    severity: string;
-    count: number;
-  }[];
+  topIssues: TopIssue[];
 }

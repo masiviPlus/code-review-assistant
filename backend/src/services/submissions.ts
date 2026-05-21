@@ -97,10 +97,29 @@ export async function analyseAndScore(
   }
 }
 
+// ── Message normalisation ───────────────────────────────────
+//
+// LLM-generated messages have small variations (different variable
+// names, line numbers, literals) that prevent grouping. We normalise
+// to a stable key for aggregation while preserving the most recent
+// original wording for display.
+
+export function normaliseMessage(msg: string): string {
+  return msg
+    .replace(/['"`].*?['"`]/g, '<name>')  // quoted identifiers
+    .replace(/`[^`]*`/g, '<name>')         // backtick identifiers
+    .replace(/\b\d+\b/g, '<n>')            // numeric literals
+    .replace(/\bline\s+<n>/gi, '')         // "line 42" references
+    .replace(/\bcol(?:umn)?\s+<n>/gi, '')  // "column 7" references
+    .replace(/\s+/g, ' ')                  // collapse whitespace
+    .trim()
+    .toLowerCase();
+}
+
 // ── getStats ────────────────────────────────────────────────
 //
 // Aggregated stats for the dashboard: category averages and
-// top issue categories across the user's submission history.
+// top recurring issues across the user's submission history.
 
 export async function getStats(userId: Types.ObjectId) {
   // Category averages across all completed submissions
@@ -126,16 +145,60 @@ export async function getStats(userId: Types.ObjectId) {
       }
     : null;
 
-  // Top 5 issue categories (category + severity) across all user submissions
+  // Top 5 recurring issues grouped by normalised message
   const submissionIds = await Submission.find(completedFilter(userId)).distinct('_id');
 
-  const topIssues = await Issue.aggregate([
-    { $match: { submissionId: { $in: submissionIds } } },
-    { $group: { _id: { category: '$category', severity: '$severity' }, count: { $sum: 1 } } },
-    { $sort: { count: -1 as const } },
-    { $limit: 5 },
-    { $project: { _id: 0, category: '$_id.category', severity: '$_id.severity', count: 1 } },
-  ]);
+  const rawIssues = await Issue.find(
+    { submissionId: { $in: submissionIds }, message: { $ne: null } },
+  )
+    .select('message category severity submissionId')
+    .populate<{ submissionId: { createdAt: Date } }>('submissionId', 'createdAt')
+    .lean();
+
+  // Group by normalised key, track most recent original message
+  const groups = new Map<string, {
+    message: string;
+    category: string;
+    severity: string;
+    count: number;
+    lastSeenAt: Date;
+  }>();
+
+  for (const issue of rawIssues) {
+    if (!issue.message) continue;
+    const key = normaliseMessage(issue.message);
+    const existing = groups.get(key);
+    const createdAt = (issue.submissionId as unknown as { createdAt: Date }).createdAt;
+
+    if (existing) {
+      existing.count++;
+      if (createdAt > existing.lastSeenAt) {
+        existing.message = issue.message;
+        existing.category = issue.category;
+        existing.severity = issue.severity;
+        existing.lastSeenAt = createdAt;
+      }
+    } else {
+      groups.set(key, {
+        message: issue.message,
+        category: issue.category,
+        severity: issue.severity,
+        count: 1,
+        lastSeenAt: createdAt,
+      });
+    }
+  }
+
+  const topIssues = [...groups.values()]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5)
+    .map(({ message, category, severity, count, lastSeenAt }) => ({
+      message,
+      category,
+      severity,
+      count,
+      lastSeenAt,
+    }));
 
   return { categoryAverages, topIssues };
 }

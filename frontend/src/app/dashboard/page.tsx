@@ -239,13 +239,13 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {stats && stats.topIssues.length > 0 && (
+            {stats && (
               <div>
                 <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Most common issues
                 </h2>
                 <div className="rounded-md border border-border bg-card">
-                  <TopIssuesPanel issues={stats.topIssues} />
+                  <TopIssuesPanel issues={stats.topIssues} totalSubmissions={submissions.length} />
                 </div>
               </div>
             )}
