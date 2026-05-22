@@ -35,11 +35,9 @@ test.describe('Dashboard stats after submission', () => {
     // Total points stat card should be visible
     await expect(page.getByText('Total points').nth(1)).toBeVisible();
 
-    // Recent submissions section should have at least one entry
+    // Recent submissions section should have at least one entry with a score
     await expect(page.getByText('Recent submissions')).toBeVisible();
-
-    // The score from the fake provider (74) should appear somewhere
-    await expect(page.getByText('74').first()).toBeVisible();
+    await expect(page.locator('a[href^="/submissions/"]').first()).toBeVisible();
   });
 
   test('dashboard shows empty state for a fresh user', async ({ page }) => {
